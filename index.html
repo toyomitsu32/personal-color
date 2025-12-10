@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIパーソナルカラー診断 | 春夏秋冬タイプ診断</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23a855f7'/%3E%3Ccircle cx='50' cy='45' r='20' fill='%23fff' opacity='.9'/%3E%3Ccircle cx='43' cy='42' r='3' fill='%23a855f7'/%3E%3Ccircle cx='57' cy='42' r='3' fill='%23a855f7'/%3E%3Cpath d='M40 52q10 6 20 0' stroke='%23ec4899' stroke-width='3' fill='none'/%3E%3Ccircle cx='25' cy='75' r='5' fill='%23FFD700'/%3E%3Ccircle cx='75' cy='75' r='5' fill='%2387CEEB'/%3E%3C/svg%3E">
+    
+    <!-- Meta Tags -->
+    <meta name="description" content="AIがあなたに似合う色を診断。パーソナルカラー（春夏秋冬）診断とヘアカラーシミュレーションが無料で使えます。">
+    <meta name="keywords" content="パーソナルカラー,診断,AI,春夏秋冬,イエベ,ブルベ,ヘアカラー">
+    <meta name="theme-color" content="#a855f7">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #fef5f8 50%, #fff9f0 100%);
+            min-height: 100vh;
+        }
+        .upload-area {
+            transition: all 0.3s ease;
+        }
+        .upload-area:hover {
+            transform: translateY(-2px);
+            border-color: #a855f7;
+            box-shadow: 0 20px 40px rgba(168, 85, 247, 0.15);
+        }
+        .upload-area.active {
+            border-color: #ec4899;
+            background: linear-gradient(135deg, #faf5ff 0%, #fdf2f8 100%);
+            transform: scale(1.02);
+        }
+        .color-sample {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        canvas {
+            max-width: 100%;
+            height: auto;
+        }
+        
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        .animate-gradient {
+            background-size: 200% 200%;
+            animation: gradient 3s ease infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .animate-float {
+            animation: float 3s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <!-- Hero Header -->
+        <header class="text-center mb-12">
+            <div class="inline-flex items-center space-x-2 mb-4 px-4 py-2 bg-gradient-to-r from-purple-100 to-pink-100 rounded-full">
+                <span class="material-icons text-purple-600 text-sm">auto_awesome</span>
+                <span class="text-xs font-semibold text-purple-700 uppercase tracking-wider">AI Powered</span>
+            </div>
+            
+            <h1 class="text-5xl md:text-6xl font-extrabold mb-4">
+                <span class="bg-gradient-to-r from-purple-600 via-pink-500 to-orange-400 bg-clip-text text-transparent">
+                    パーソナルカラー
+                </span>
+                <br>
+                <span class="text-slate-900">診断ツール</span>
+            </h1>
+            
+            <p class="text-lg text-slate-600 max-w-2xl mx-auto mb-6">
+                あなたに似合う色を<span class="font-semibold text-purple-600">AI</span>が瞬時に診断。<br>
+                春夏秋冬のシーズンタイプ診断と、ヘアカラーシミュレーションで理想のスタイルを発見。
+            </p>
+            
+            <!-- Feature Tags -->
+            <div class="flex flex-wrap justify-center gap-2 mb-8">
+                <span class="inline-flex items-center px-3 py-1 bg-white rounded-full text-xs font-medium text-slate-700 shadow-sm border border-slate-200">
+                    <span class="material-icons text-xs mr-1 text-purple-500">face</span>
+                    顔認識AI
+                </span>
+                <span class="inline-flex items-center px-3 py-1 bg-white rounded-full text-xs font-medium text-slate-700 shadow-sm border border-slate-200">
+                    <span class="material-icons text-xs mr-1 text-pink-500">palette</span>
+                    4シーズン診断
+                </span>
+                <span class="inline-flex items-center px-3 py-1 bg-white rounded-full text-xs font-medium text-slate-700 shadow-sm border border-slate-200">
+                    <span class="material-icons text-xs mr-1 text-orange-500">auto_fix_high</span>
+                    ヘアカラーシミュレーション
+                </span>
+                <span class="inline-flex items-center px-3 py-1 bg-white rounded-full text-xs font-medium text-slate-700 shadow-sm border border-slate-200">
+                    <span class="material-icons text-xs mr-1 text-green-500">lock</span>
+                    完全プライバシー保護
+                </span>
+            </div>
+        </header>
+
+        <!-- Floating New Image Button -->
+        <div id="floating-actions-container" class="fixed top-24 right-8 z-50 hidden">
+            <button id="new-image-btn" class="bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold py-3 px-6 rounded-full shadow-lg hover:shadow-xl transition-all flex items-center space-x-2">
+                <span class="material-icons">add_photo_alternate</span>
+                <span>別の画像で診断</span>
+            </button>
+        </div>
+
+        <!-- Main Content -->
+        <main class="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto">
+            
+            <!-- Left Column: Upload & Preview -->
+            <div class="space-y-6">
+                <!-- Upload Area -->
+                <div id="upload-container" class="upload-area bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 rounded-2xl p-12 text-center cursor-pointer shadow-lg hover:shadow-xl transition-all relative border-2 border-dashed border-purple-200">
+                    <input type="file" id="file-input" class="hidden" accept="image/*">
+                    <div class="space-y-4">
+                        <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full mb-2 animate-float">
+                            <span class="material-icons text-5xl text-white">add_photo_alternate</span>
+                        </div>
+                        <div>
+                            <p class="font-bold text-lg text-slate-800 mb-1">顔写真をアップロード</p>
+                            <p class="text-sm text-slate-500">クリック or ドラッグ＆ドロップ</p>
+                            <p class="text-xs text-slate-400 mt-2">JPG, PNG対応 • 最大10MB</p>
+                        </div>
+                    </div>
+                    <!-- Loading Overlay -->
+                    <div id="loading-overlay" class="absolute inset-0 bg-white/95 backdrop-blur-sm rounded-2xl flex items-center justify-center hidden pointer-events-none">
+                        <div class="flex flex-col items-center">
+                            <div class="relative">
+                                <svg class="animate-spin h-12 w-12 text-purple-500 mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            </div>
+                            <span id="loading-text" class="text-sm font-semibold text-purple-700">AI モデル読み込み中...</span>
+                            <span class="text-xs text-slate-500 mt-1">少々お待ちください</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Preview Area -->
+                <div id="preview-container" class="bg-white rounded-2xl shadow-lg overflow-hidden hidden border border-slate-100">
+                    <div class="relative">
+                        <canvas id="output-canvas" class="block w-full"></canvas>
+                        <!-- Close Preview Button -->
+                        <button id="close-preview-btn" class="absolute top-2 right-2 bg-white/90 hover:bg-white text-slate-700 p-2 rounded-full shadow-md transition-colors">
+                            <span class="material-icons text-xl">close</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results -->
+            <div class="space-y-6">
+                <!-- Status Card -->
+                <div id="status-card" class="bg-blue-50 border border-blue-100 rounded-xl p-6 hidden">
+                    <div class="flex items-center space-x-3">
+                        <span class="material-icons text-blue-500">face</span>
+                        <div>
+                            <h3 class="font-bold text-blue-900">顔を検出しました</h3>
+                            <p class="text-sm text-blue-700">各パーツの色情報を解析済みです。</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Error Card -->
+                <div id="error-card" class="bg-red-50 border border-red-100 rounded-xl p-6 hidden">
+                    <div class="flex items-center space-x-3">
+                        <span class="material-icons text-red-500">error_outline</span>
+                        <div>
+                            <h3 class="font-bold text-red-900">検出できませんでした</h3>
+                            <p id="error-message" class="text-sm text-red-700">画像から顔が見つかりませんでした。</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results Grid -->
+                <div id="results-grid" class="grid grid-cols-1 gap-4 hidden">
+                    
+                    <!-- Hair -->
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
+                                <span class="material-icons text-slate-500">content_cut</span>
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-slate-900">髪の色</h4>
+                                <p class="text-xs text-slate-500">Hair Color</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <div class="text-right">
+                                <p id="hair-hex" class="font-mono text-sm font-medium text-slate-700">#000000</p>
+                                <p id="hair-rgb" class="text-xs text-slate-400">rgb(0,0,0)</p>
+                            </div>
+                            <div id="hair-sample" class="color-sample bg-black"></div>
+                        </div>
+                    </div>
+
+                    <!-- Eyes -->
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
+                                <span class="material-icons text-slate-500">visibility</span>
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-slate-900">瞳の色</h4>
+                                <p class="text-xs text-slate-500">Eye Color</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <div class="text-right">
+                                <p id="eye-hex" class="font-mono text-sm font-medium text-slate-700">#000000</p>
+                                <p id="eye-rgb" class="text-xs text-slate-400">rgb(0,0,0)</p>
+                            </div>
+                            <div id="eye-sample" class="color-sample bg-black"></div>
+                        </div>
+                    </div>
+
+                    <!-- Nose (Skin) -->
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
+                                <span class="material-icons text-slate-500">face</span>
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-slate-900">肌の色（鼻周辺）</h4>
+                                <p class="text-xs text-slate-500">Skin Tone</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <div class="text-right">
+                                <p id="nose-hex" class="font-mono text-sm font-medium text-slate-700">#000000</p>
+                                <p id="nose-rgb" class="text-xs text-slate-400">rgb(0,0,0)</p>
+                            </div>
+                            <div id="nose-sample" class="color-sample bg-black"></div>
+                        </div>
+                    </div>
+
+                    <!-- Lips -->
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
+                                <span class="material-icons text-slate-500">mood</span>
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-slate-900">唇の色</h4>
+                                <p class="text-xs text-slate-500">Lip Color</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <div class="text-right">
+                                <p id="lip-hex" class="font-mono text-sm font-medium text-slate-700">#000000</p>
+                                <p id="lip-rgb" class="text-xs text-slate-400">rgb(0,0,0)</p>
+                            </div>
+                            <div id="lip-sample" class="color-sample bg-black"></div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- パーソナルカラー診断結果カード -->
+                <div id="diagnosis-card" class="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-100 rounded-xl p-6 shadow-lg hidden">
+                    <div class="space-y-4">
+                        <!-- シーズンタイトル -->
+                        <div class="text-center pb-4 border-b border-purple-200">
+                            <div class="inline-flex items-center space-x-2 mb-2">
+                                <span class="material-icons text-purple-500">palette</span>
+                                <h3 class="text-sm font-medium text-purple-600">あなたのパーソナルカラーは</h3>
+                            </div>
+                            <h2 id="season-name" class="text-2xl font-bold text-purple-900 mb-1">スプリング</h2>
+                            <p id="season-name-en" class="text-sm text-purple-600 font-medium">Spring</p>
+                        </div>
+
+                        <!-- 説明 -->
+                        <div class="bg-white/70 rounded-lg p-4">
+                            <p id="season-description" class="text-sm text-slate-700 leading-relaxed"></p>
+                        </div>
+
+                        <!-- 特徴 -->
+                        <div class="bg-white/70 rounded-lg p-4">
+                            <h4 class="font-semibold text-slate-900 mb-2 flex items-center">
+                                <span class="material-icons text-sm mr-1">check_circle</span>
+                                あなたの特徴
+                            </h4>
+                            <ul id="characteristics-list" class="space-y-1 ml-2">
+                            </ul>
+                        </div>
+
+                        <!-- カラーパレット -->
+                        <div class="bg-white/70 rounded-lg p-4">
+                            <h4 class="font-semibold text-slate-900 mb-3 flex items-center">
+                                <span class="material-icons text-sm mr-1">color_lens</span>
+                                おすすめカラーパレット
+                            </h4>
+                            <div id="color-palette" class="flex flex-wrap gap-2 mb-3"></div>
+                            <p id="recommendations" class="text-xs text-slate-600 leading-relaxed mb-2"></p>
+                            <div class="bg-red-50 border-l-4 border-red-400 p-2 mt-2">
+                                <p class="text-xs text-red-700"><strong>避けたい色:</strong> <span id="avoid-colors"></span></p>
+                            </div>
+                        </div>
+
+                        <!-- 分析データ -->
+                        <div class="bg-white/70 rounded-lg p-4">
+                            <h4 class="font-semibold text-slate-900 mb-2 flex items-center">
+                                <span class="material-icons text-sm mr-1">analytics</span>
+                                詳細分析
+                            </h4>
+                            <div class="grid grid-cols-2 gap-2 text-xs">
+                                <div class="bg-slate-50 p-2 rounded">
+                                    <span class="text-slate-500">ベースカラー:</span>
+                                    <span id="analysis-tone" class="font-medium text-slate-700 ml-1"></span>
+                                </div>
+                                <div class="bg-slate-50 p-2 rounded">
+                                    <span class="text-slate-500">明度:</span>
+                                    <span id="analysis-brightness" class="font-medium text-slate-700 ml-1"></span>
+                                </div>
+                                <div class="bg-slate-50 p-2 rounded">
+                                    <span class="text-slate-500">彩度:</span>
+                                    <span id="analysis-saturation" class="font-medium text-slate-700 ml-1"></span>
+                                </div>
+                                <div class="bg-slate-50 p-2 rounded">
+                                    <span class="text-slate-500">コントラスト:</span>
+                                    <span id="analysis-contrast" class="font-medium text-slate-700 ml-1"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI ヘアカラーシミュレーションカード -->
+                <div id="hair-simulation-card" class="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-6 shadow-lg border border-purple-100 hidden">
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-bold text-slate-900 flex items-center">
+                                <span class="material-icons text-purple-500 mr-2">palette</span>
+                                ヘアカラーシミュレーション
+                            </h3>
+                        </div>
+                        <p class="text-xs text-slate-600 mb-4">
+                            <span class="inline-flex items-center">
+                                <span class="material-icons text-xs text-purple-500 mr-1">palette</span>
+                                あなたに似合う3パターンのヘアカラーを表示します
+                            </span>
+                        </p>
+                        
+                        <!-- 注意メッセージ -->
+                        <div class="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
+                            <div class="flex items-start space-x-2">
+                                <span class="material-icons text-orange-500 text-sm mt-0.5">info</span>
+                                <div class="text-xs text-orange-700">
+                                    <p class="font-semibold mb-1">AI画像生成機能について</p>
+                                    <p>静的サイトではAI画像生成APIを直接呼び出せないため、この機能は現在利用できません。代わりにブラウザ内でのピクセル編集を使用しています。</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 生成ボタン -->
+                        <button id="generate-hair-colors-btn" class="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold py-3 px-4 rounded-xl shadow-md hover:shadow-xl transition-all flex items-center justify-center space-x-2">
+                            <span class="material-icons">palette</span>
+                            <span id="generate-btn-text">3パターン表示する</span>
+                        </button>
+                        
+                        <!-- 生成中の表示 -->
+                        <div id="generating-status" class="hidden">
+                            <div class="bg-white rounded-xl p-4 space-y-3">
+                                <div class="flex items-center space-x-3">
+                                    <svg class="animate-spin h-5 w-5 text-purple-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <div>
+                                        <p class="text-sm font-semibold text-slate-700">作成中...</p>
+                                        <p id="generation-progress" class="text-xs text-slate-500">パターン 1/3 を作成中</p>
+                                    </div>
+                                </div>
+                                <div class="w-full bg-slate-200 rounded-full h-2">
+                                    <div id="progress-bar" class="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 3パターン結果表示カード -->
+                <div id="hair-results-card" class="bg-white rounded-2xl p-6 shadow-lg border border-slate-100 hidden">
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="font-bold text-slate-900 flex items-center">
+                                <span class="material-icons text-purple-500 mr-2">palette</span>
+                                生成結果
+                            </h3>
+                        </div>
+                        <p class="text-xs text-slate-500 mb-4">サムネイルをクリックして比較できます</p>
+                        
+                        <!-- Before/After Toggle（結果の上に配置） -->
+                        <div id="before-after-toggle" class="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-200 hidden">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center space-x-2">
+                                    <span class="material-icons text-purple-500 text-sm">compare</span>
+                                    <span class="text-sm font-semibold text-slate-700">比較表示</span>
+                                </div>
+                                <span id="current-color-name" class="text-xs text-slate-600 font-medium"></span>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button id="show-before-btn" class="flex-1 px-4 py-2 text-sm font-medium bg-white text-slate-700 rounded-lg border-2 border-slate-300 hover:bg-slate-50 transition-all">
+                                    <div class="flex items-center justify-center space-x-1">
+                                        <span class="material-icons text-sm">visibility_off</span>
+                                        <span>Before</span>
+                                    </div>
+                                </button>
+                                <button id="show-after-btn" class="flex-1 px-4 py-2 text-sm font-medium bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:shadow-md transition-all">
+                                    <div class="flex items-center justify-center space-x-1">
+                                        <span class="material-icons text-sm">visibility</span>
+                                        <span>After</span>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- プレビュー画像（インライン表示） -->
+                        <div id="inline-preview-container" class="bg-slate-50 rounded-xl overflow-hidden border border-slate-200 hidden">
+                            <canvas id="inline-canvas" class="block w-full"></canvas>
+                        </div>
+                        
+                        <!-- 結果グリッド -->
+                        <div class="grid grid-cols-1 gap-4" id="results-grid-container">
+                            <!-- 動的に生成 -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PDFエクスポートボタン（一時的に非表示） -->
+                <!--
+                <div id="export-section" class="hidden">
+                    <button id="export-pdf-btn" class="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center space-x-2">
+                        <span class="material-icons">download</span>
+                        <span>診断結果をPDFでダウンロード</span>
+                    </button>
+                </div>
+                -->
+
+            </div>
+        </main>
+        
+        <footer class="mt-16 pt-8 border-t border-slate-200">
+            <div class="text-center space-y-4">
+                <div class="flex items-center justify-center space-x-2 text-slate-500">
+                    <span class="material-icons text-sm">verified</span>
+                    <span class="text-xs font-medium">Powered by MediaPipe AI & Advanced Color Analysis</span>
+                </div>
+                <div class="flex items-center justify-center space-x-4 text-xs text-slate-400">
+                    <span class="flex items-center">
+                        <span class="material-icons text-xs mr-1">lock</span>
+                        データは保存されません
+                    </span>
+                    <span class="flex items-center">
+                        <span class="material-icons text-xs mr-1">speed</span>
+                        高速処理
+                    </span>
+                    <span class="flex items-center">
+                        <span class="material-icons text-xs mr-1">devices</span>
+                        全デバイス対応
+                    </span>
+                </div>
+                <p class="text-xs text-slate-400 pt-2">© 2024 AI Personal Color Diagnosis. All rights reserved.</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- MediaPipe Tasks Vision (via CDN) -->
+    <script type="module" src="js/script.js"></script>
+</body>
+</html>
