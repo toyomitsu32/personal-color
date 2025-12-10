@@ -1,0 +1,19 @@
+{
+  "name": "webapp",
+  "version": "1.0.0",
+  "description": "ブラウザ上で動作する、AIを用いた顔パーツの色分析とパーソナルカラー診断ツールです。 Google MediaPipe Face Landmarkerを使用し、アップロードされた画像から人物の顔を検出し、髪、目、鼻（肌）、口の色を自動的に抽出。さらに、これらの色情報から**春夏秋冬のパーソナルカラータイプ**を診断します。",
+  "main": "index.js",
+  "scripts": {
+    "start": "http-server .",
+    "dev": "wrangler pages dev .",
+    "deploy": "wrangler pages deploy .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "http-server": "^14.1.1",
+    "wrangler": "^4.53.0"
+  }
+}
