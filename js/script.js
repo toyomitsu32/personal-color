@@ -31,6 +31,7 @@ let currentHairColor = null;
 let aiGeneratedImages = []; // AI生成された3パターンの画像を保存
 let currentSelectedIndex = -1; // 現在選択されているパターン
 let inlineCanvas = null; // インライン表示用のCanvas
+let isAnalyzing = false; // 解析中フラグ（重複実行防止）
 
 let faceLandmarker;
 let runningMode = "IMAGE";
@@ -49,7 +50,10 @@ async function createFaceLandmarker() {
       },
       outputFaceBlendshapes: false,
       runningMode: runningMode,
-      numFaces: 1
+      numFaces: 1,
+      minFaceDetectionConfidence: 0.6, // 信頼度閾値を上げて誤検出を減らす
+      minFacePresenceConfidence: 0.6,
+      minTrackingConfidence: 0.6
     });
     // Image Segmenterも初期化
     await initImageSegmenter(FilesetResolver);
@@ -170,6 +174,9 @@ function processFile(file) {
         alert("モデルがまだ読み込まれていません。少々お待ちください。");
         return;
     }
+    
+    if (isAnalyzing) return; // 解析中は無視
+    isAnalyzing = true;
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -177,7 +184,15 @@ function processFile(file) {
         img.onload = () => {
             runInference(img);
         };
+        img.onerror = () => {
+            isAnalyzing = false;
+            alert("画像の読み込みに失敗しました。");
+        };
         img.src = e.target.result;
+    };
+    reader.onerror = () => {
+        isAnalyzing = false;
+        alert("ファイルの読み込みに失敗しました。");
     };
     reader.readAsDataURL(file);
 }
@@ -196,6 +211,7 @@ async function runInference(img) {
     outputCanvas.width = img.width * scale;
     outputCanvas.height = img.height * scale;
 
+    ctx.clearRect(0, 0, outputCanvas.width, outputCanvas.height); // キャンバスをクリア
     ctx.drawImage(img, 0, 0, outputCanvas.width, outputCanvas.height);
     
     // 元の画像を保存
@@ -204,25 +220,33 @@ async function runInference(img) {
     originalCanvas.height = outputCanvas.height;
     originalCanvas.getContext('2d').drawImage(outputCanvas, 0, 0);
 
-    // Detect faces
-    const results = faceLandmarker.detect(outputCanvas);
-    
-    // Draw landmarks and analyze colors
-    if (results.faceLandmarks.length > 0) {
-        statusCard.classList.remove('hidden');
-        errorCard.classList.add('hidden');
-        resultsGrid.classList.remove('hidden');
+    try {
+        // Detect faces
+        const results = faceLandmarker.detect(outputCanvas);
         
-        const landmarks = results.faceLandmarks[0];
-        currentLandmarks = landmarks;
-        
-        analyzeColors(landmarks, ctx);
-        drawLandmarks(landmarks, ctx);
-    } else {
-        statusCard.classList.add('hidden');
+        // Draw landmarks and analyze colors
+        if (results.faceLandmarks.length > 0) {
+            statusCard.classList.remove('hidden');
+            errorCard.classList.add('hidden');
+            resultsGrid.classList.remove('hidden');
+            
+            const landmarks = results.faceLandmarks[0];
+            currentLandmarks = landmarks;
+            
+            analyzeColors(landmarks, ctx);
+            drawLandmarks(landmarks, ctx);
+        } else {
+            statusCard.classList.add('hidden');
+            errorCard.classList.remove('hidden');
+            resultsGrid.classList.add('hidden');
+            errorMessage.innerText = "顔が検出されませんでした。別の画像を試してください。";
+        }
+    } catch (err) {
+        console.error(err);
+        errorMessage.innerText = "解析中にエラーが発生しました。";
         errorCard.classList.remove('hidden');
-        resultsGrid.classList.add('hidden');
-        errorMessage.innerText = "顔が検出されませんでした。別の画像を試してください。";
+    } finally {
+        isAnalyzing = false; // 解析終了
     }
 }
 
@@ -257,16 +281,32 @@ function analyzeColors(landmarks, ctx) {
     const w = outputCanvas.width;
     const h = outputCanvas.height;
 
+    // Face metrics for adaptive calculation
+    const forehead = landmarks[10];
+    const chin = landmarks[152];
+    const leftCheek = landmarks[234];
+    const rightCheek = landmarks[454];
+    
+    // Calculate face dimensions
+    const faceHeight = Math.abs(chin.y - forehead.y) * h;
+    const faceWidth = Math.abs(rightCheek.x - leftCheek.x) * w;
+    const faceSize = (faceHeight + faceWidth) / 2;
+    
+    // Adaptive radius: ~1.5% of face size
+    const baseRadius = Math.max(2, Math.min(15, Math.round(faceSize * 0.015)));
+
     // 1. Skin (Nose tip) - Index 1
     const nose = landmarks[1];
-    const skinColor = getColorAt(nose.x * w, nose.y * h, 10); // Use 10px radius
+    // Slightly larger radius for skin to average out pores/noise
+    const skinColor = getColorAt(nose.x * w, nose.y * h, Math.round(baseRadius * 1.5)); 
 
     // 2. Eyes (Iris) - Left: 468, Right: 473
     const leftEye = landmarks[468];
     const rightEye = landmarks[473];
-    // Average both eyes
-    const lColor = getColorAt(leftEye.x * w, leftEye.y * h, 3);
-    const rColor = getColorAt(rightEye.x * w, rightEye.y * h, 3);
+    // Smaller radius for eyes to stay within iris
+    const eyeRadius = Math.max(1, Math.round(baseRadius * 0.5));
+    const lColor = getColorAt(leftEye.x * w, leftEye.y * h, eyeRadius);
+    const rColor = getColorAt(rightEye.x * w, rightEye.y * h, eyeRadius);
     const eyeColor = {
         r: Math.round((lColor.r + rColor.r) / 2),
         g: Math.round((lColor.g + rColor.g) / 2),
@@ -275,27 +315,22 @@ function analyzeColors(landmarks, ctx) {
 
     // 3. Lips (Lower lip center) - Index 17 (or 13 for upper/lower inner)
     const lip = landmarks[13];
-    const lipColor = getColorAt(lip.x * w, lip.y * h, 5);
+    const lipColor = getColorAt(lip.x * w, lip.y * h, baseRadius);
 
     // 4. Hair (Approximation)
-    // Take top of forehead (10) and go up.
-    // Distance ref: distance between eyes (33 and 263)
-    const forehead = landmarks[10];
-    const leftEyeOuter = landmarks[33];
-    const rightEyeOuter = landmarks[263];
-    
-    // Calculate face width
-    const faceWidth = Math.abs(rightEyeOuter.x - leftEyeOuter.x);
-    
-    // Guess hair position: Go up from forehead by ~40-50% of face width
+    // Adjusted strategy: Sample closer to forehead
+    // Go up from forehead by ~25% of face height
     // Note: y coordinates are 0 at top, 1 at bottom. So "up" is subtracting y.
+    
     let hairX = forehead.x * w;
-    let hairY = (forehead.y - faceWidth * 0.5) * h;
+    // Go up by 1/4 of face height (approx forehead size)
+    let hairY = (forehead.y * h) - (faceHeight * 0.25); 
     
-    // Clamp to canvas
-    hairY = Math.max(0, hairY);
+    // Clamp to canvas (with padding)
+    hairY = Math.max(5, hairY);
     
-    const hairColor = getColorAt(hairX, hairY, 15);
+    // Sample hair with larger radius to get average color
+    const hairColor = getColorAt(hairX, hairY, Math.round(baseRadius * 2));
     currentHairColor = hairColor; // 保存
 
     // Update UI
