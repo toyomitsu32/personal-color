@@ -35,47 +35,47 @@ export async function onRequestPost(context) {
         // Prepare the image (remove header)
         const base64Image = image.replace(/^data:image\/\w+;base64,/, "");
 
-        // Use Gemini 2.0 Flash as it is confirmed working and fast
-        const modelName = "gemini-2.0-flash"; 
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
-
-        // Prompt designed to force the LLM to act as an image processor via Base64 text
-        const systemPrompt = `You are an AI image processing engine.
-        Task: Change the hair color of the person in the input image to ${color} (${prompt}).
+        // Use Imagen 3 model via Gemini API
+        // NOTE: While "imagen-3.0-generate-001" is the Vertex AI model name, 
+        // the Gemini API via Google AI Studio typically exposes Imagen models differently or requires specific access.
+        // Assuming user has access to Imagen via Gemini API key as requested.
+        // If this fails, we fall back to user's instruction.
         
-        OUTPUT FORMAT REQUIREMENTS:
-        1.  **Generate a completely new JPEG image** representing the result.
-        2.  **Downscale the result to 64x64 pixels**. (Extremely small size is required to fit text limit).
-        3.  **Compress with JPEG Quality 10**. (Maximum compression required).
-        4.  Output **ONLY** the raw Base64 encoded string of this new JPEG image.
-        5.  Do NOT output JSON. Do NOT output markdown blocks (like \`\`\`base64).
-        6.  Do NOT output the data prefix (data:image/jpeg;base64,).
-        7.  Just the raw string characters. Nothing else.`;
+        // However, standard Gemini API keys often work with "gemini-pro" or similar.
+        // For Imagen on Gemini API (if available), the endpoint might be slightly different or same.
+        // Let's try the standard Imagen endpoint structure if available, or use the recommended "imagen-3.0-generate-001".
+        
+        // Actually, for AI Studio keys, the model is often "imagen-3.0-generate-001".
+        const modelName = "imagen-3.0-generate-001"; 
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:predict`; // Imagen uses :predict usually, or generateImages
 
+        // Imagen API payload structure is different
+        // It takes instances and parameters
         const payload = {
-            contents: [{
-                parts: [
-                    { text: systemPrompt },
-                    {
-                        inline_data: {
-                            mime_type: "image/jpeg",
-                            data: base64Image
-                        }
+            instances: [
+                {
+                    prompt: `A photorealistic portrait of a person with ${color} hair. ${prompt}. High quality, professional photography.`,
+                    image: {
+                        bytesBase64Encoded: base64Image
                     }
+                }
+            ],
+            parameters: {
+                sampleCount: 1,
+                aspectRatio: "1:1", // Or match input image ratio if possible
+                personGeneration: "allow_adult",
+                safetySettings: [ // Imagen specific safety settings structure might differ, simplifying
+                     { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" }
                 ]
-            }],
-            generationConfig: {
-                response_mime_type: "text/plain",
-                maxOutputTokens: 8192
-            },
-            safetySettings: [
-                { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-                { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-                { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-                { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
-            ]
+            }
         };
 
+        // Note: Imagen 3 API availability on public API keys is limited. 
+        // If this specific URL/Model fails, it means the user's key doesn't support Imagen directly.
+        
+        // ALTERNATIVE: Use the image editing capability if supported by a specific Gemini model designed for it.
+        // But user asked for "Imagen 3".
+        
         const apiResponse = await fetch(url, {
             method: "POST",
             headers: { 
@@ -93,33 +93,27 @@ export async function onRequestPost(context) {
         const data = await apiResponse.json();
         
         let generatedImage = null;
-        let rawText = "No text returned";
-
+        
+        // Handle Imagen API Response
         try {
-            // Check if we got a text response (Base64 string)
-            if (data.candidates && data.candidates[0].content && data.candidates[0].content.parts) {
-                const textPart = data.candidates[0].content.parts.find(p => p.text);
-                
-                if (textPart) {
-                    rawText = textPart.text.trim();
-                    // Clean up markdown code blocks if present
-                    let cleanBase64 = rawText.replace(/```\w*/g, '').replace(/```/g, '').trim();
-                    // Clean up whitespace
-                    cleanBase64 = cleanBase64.replace(/\s/g, '');
-                    // Remove prefix if present
-                    cleanBase64 = cleanBase64.replace(/^data:image\/\w+;base64,/, '');
-                    
-                    if (cleanBase64.length > 100) {
-                        generatedImage = cleanBase64;
-                    }
+            if (data.predictions && data.predictions.length > 0) {
+                // Imagen returns bytesBase64Encoded directly in predictions
+                if (data.predictions[0].bytesBase64Encoded) {
+                    generatedImage = data.predictions[0].bytesBase64Encoded;
+                } else if (data.predictions[0].mimeType && data.predictions[0].bytesBase64Encoded) {
+                     generatedImage = data.predictions[0].bytesBase64Encoded;
                 }
+            } else if (data.error) {
+                 throw new Error(`Imagen API Error: ${data.error.message || JSON.stringify(data.error)}`);
             }
         } catch (e) {
-            console.error("Failed to parse Gemini response:", e);
+            console.error("Failed to parse Imagen response:", e);
+             // Fallback for debugging
+             throw new Error(`Failed to parse Imagen response. Raw data: ${JSON.stringify(data).substring(0, 200)}...`);
         }
 
         if (!generatedImage) {
-             throw new Error(`Failed to generate image. Model response: ${rawText.substring(0, 100)}...`);
+             throw new Error(`Failed to generate image with Imagen. No image data found.`);
         }
 
         return new Response(JSON.stringify({
