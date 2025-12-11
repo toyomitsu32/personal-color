@@ -35,46 +35,38 @@ export async function onRequestPost(context) {
         // Prepare the image (remove header)
         const base64Image = image.replace(/^data:image\/\w+;base64,/, "");
 
-        // Use Imagen 3 model via Gemini API
-        // NOTE: While "imagen-3.0-generate-001" is the Vertex AI model name, 
-        // the Gemini API via Google AI Studio typically exposes Imagen models differently or requires specific access.
-        // Assuming user has access to Imagen via Gemini API key as requested.
-        // If this fails, we fall back to user's instruction.
-        
-        // However, standard Gemini API keys often work with "gemini-pro" or similar.
-        // For Imagen on Gemini API (if available), the endpoint might be slightly different or same.
-        // Let's try the standard Imagen endpoint structure if available, or use the recommended "imagen-3.0-generate-001".
-        
-        // Actually, for AI Studio keys, the model is often "imagen-3.0-generate-001".
-        const modelName = "imagen-3.0-generate-001"; 
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:predict`; // Imagen uses :predict usually, or generateImages
+        // Use Gemini 2.5 Flash Image model as strictly requested
+        const modelName = "gemini-2.5-flash-image"; 
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
 
-        // Imagen API payload structure is different
-        // It takes instances and parameters
+        // Simplified prompt for image generation/editing task
+        const systemPrompt = `Change the hair color of the person in this image to ${color} (${prompt}).`;
+
+        // Gemini 2.5 Flash Image specific payload
         const payload = {
-            instances: [
-                {
-                    prompt: `A photorealistic portrait of a person with ${color} hair. ${prompt}. High quality, professional photography.`,
-                    image: {
-                        bytesBase64Encoded: base64Image
+            contents: [{
+                parts: [
+                    { text: systemPrompt },
+                    {
+                        inline_data: {
+                            mime_type: "image/jpeg",
+                            data: base64Image
+                        }
                     }
-                }
-            ],
-            parameters: {
-                sampleCount: 1,
-                aspectRatio: "1:1", // Or match input image ratio if possible
-                personGeneration: "allow_adult",
-                safetySettings: [ // Imagen specific safety settings structure might differ, simplifying
-                     { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" }
                 ]
-            }
+            }],
+            generationConfig: {
+                // This model supports image output directly via inline_data in response
+                // We do NOT set response_mime_type to 'application/json' or 'text/plain' 
+                // to allow the model to return native image objects.
+            },
+            safetySettings: [
+                { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+            ]
         };
-
-        // Note: Imagen 3 API availability on public API keys is limited. 
-        // If this specific URL/Model fails, it means the user's key doesn't support Imagen directly.
-        
-        // ALTERNATIVE: Use the image editing capability if supported by a specific Gemini model designed for it.
-        // But user asked for "Imagen 3".
         
         const apiResponse = await fetch(url, {
             method: "POST",
@@ -94,26 +86,28 @@ export async function onRequestPost(context) {
         
         let generatedImage = null;
         
-        // Handle Imagen API Response
+        // Handle Gemini Native Image Response
         try {
-            if (data.predictions && data.predictions.length > 0) {
-                // Imagen returns bytesBase64Encoded directly in predictions
-                if (data.predictions[0].bytesBase64Encoded) {
-                    generatedImage = data.predictions[0].bytesBase64Encoded;
-                } else if (data.predictions[0].mimeType && data.predictions[0].bytesBase64Encoded) {
-                     generatedImage = data.predictions[0].bytesBase64Encoded;
+            if (data.candidates && data.candidates[0].content && data.candidates[0].content.parts) {
+                for (const part of data.candidates[0].content.parts) {
+                    // Check for inline_data (Native Image Output)
+                    if (part.inline_data && part.inline_data.data) {
+                        generatedImage = part.inline_data.data;
+                        break;
+                    }
+                    // Fallback check for text if image failed
+                    if (part.text && !generatedImage) {
+                         console.warn("Model returned text:", part.text);
+                    }
                 }
-            } else if (data.error) {
-                 throw new Error(`Imagen API Error: ${data.error.message || JSON.stringify(data.error)}`);
             }
         } catch (e) {
-            console.error("Failed to parse Imagen response:", e);
-             // Fallback for debugging
-             throw new Error(`Failed to parse Imagen response. Raw data: ${JSON.stringify(data).substring(0, 200)}...`);
+            console.error("Failed to parse Gemini response:", e);
         }
 
         if (!generatedImage) {
-             throw new Error(`Failed to generate image with Imagen. No image data found.`);
+             const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "No output";
+             throw new Error(`Failed to generate image. Model response: ${rawText.substring(0, 200)}...`);
         }
 
         return new Response(JSON.stringify({
