@@ -35,12 +35,23 @@ export async function onRequestPost(context) {
         // Prepare the image (remove header)
         const base64Image = image.replace(/^data:image\/\w+;base64,/, "");
 
-        // User requested model correction: Use generic multimodal name if specific one fails or is not standard
-        const modelName = "gemini-2.0-flash"; // Reverting to standard Flash model which supports image I/O
+        // Use standard Flash model but force it to output Base64 text
+        const modelName = "gemini-2.0-flash"; 
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
 
-        // Simplified prompt for native image generation/editing
-        const systemPrompt = `Change the hair color of the person in this image to ${color} (${prompt}).`;
+        // Prompt designed to force the LLM to act as an image processor via Base64 text
+        // STRICT constraints on size are required to fit in the output token limit.
+        const systemPrompt = `You are an AI image processing engine.
+        Task: Change the hair color of the person in the input image to ${color} (${prompt}).
+        
+        OUTPUT FORMAT REQUIREMENTS:
+        1.  **Generate a completely new JPEG image** representing the result.
+        2.  **Downscale the result to 128x128 pixels** (Mandatory to fit text limit).
+        3.  **Compress with JPEG Quality 30**.
+        4.  Output **ONLY** the raw Base64 encoded string of this new JPEG image.
+        5.  Do NOT output JSON. Do NOT output markdown blocks (like \`\`\`base64).
+        6.  Do NOT output the data prefix (data:image/jpeg;base64,).
+        7.  Just the raw string characters. Nothing else.`;
 
         const payload = {
             contents: [{
@@ -55,12 +66,8 @@ export async function onRequestPost(context) {
                 ]
             }],
             generationConfig: {
-                // Corrected MIME type as per instructions: application/json for structured data or text/plain for raw
-                // If using native image generation, response_mime_type should be removed or set to specific supported types.
-                // However, standard Flash model returns text/json usually.
-                // To support direct image output, we rely on the model's capability to return inline_data in the response part.
-                // We will remove explicit response_mime_type to let the model decide the best output format (which can be multimodal).
-                // If we want JSON, we use application/json. 
+                response_mime_type: "text/plain",
+                maxOutputTokens: 8192
             },
             safetySettings: [
                 { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
@@ -87,20 +94,24 @@ export async function onRequestPost(context) {
         const data = await apiResponse.json();
         
         let generatedImage = null;
-        
-        // Handle Gemini Native Image Response (inline_data)
-        // Python equivalent: if part.inline_data is not None: image = part.as_image()
+        let rawText = "No text returned";
+
         try {
+            // Check if we got a text response (Base64 string)
             if (data.candidates && data.candidates[0].content && data.candidates[0].content.parts) {
-                for (const part of data.candidates[0].content.parts) {
-                    // Check for inline_data (Native Image Output)
-                    if (part.inline_data && part.inline_data.data) {
-                        generatedImage = part.inline_data.data;
-                        break;
-                    }
-                    // Fallback: Check if it returned text (error or refusal)
-                    if (part.text) {
-                        console.warn("Model returned text instead of image:", part.text);
+                const textPart = data.candidates[0].content.parts.find(p => p.text);
+                
+                if (textPart) {
+                    rawText = textPart.text.trim();
+                    // Clean up markdown code blocks if present
+                    let cleanBase64 = rawText.replace(/```\w*/g, '').replace(/```/g, '').trim();
+                    // Clean up whitespace
+                    cleanBase64 = cleanBase64.replace(/\s/g, '');
+                    // Remove prefix if present
+                    cleanBase64 = cleanBase64.replace(/^data:image\/\w+;base64,/, '');
+                    
+                    if (cleanBase64.length > 100) {
+                        generatedImage = cleanBase64;
                     }
                 }
             }
@@ -109,9 +120,7 @@ export async function onRequestPost(context) {
         }
 
         if (!generatedImage) {
-             // Extract raw text for debugging if image missing
-             const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "No text";
-             throw new Error(`Failed to generate image. Model response: ${rawText}`);
+             throw new Error(`Failed to generate image. Model response: ${rawText.substring(0, 100)}...`);
         }
 
         return new Response(JSON.stringify({
