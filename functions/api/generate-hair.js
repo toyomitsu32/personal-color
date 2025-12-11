@@ -58,7 +58,13 @@ export async function onRequestPost(context) {
             }],
             generationConfig: {
                 response_mime_type: "application/json"
-            }
+            },
+            safetySettings: [
+                { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+            ]
         };
 
         const apiResponse = await fetch(url, {
@@ -77,28 +83,47 @@ export async function onRequestPost(context) {
 
         const data = await apiResponse.json();
         
+        // Debug info in case of failure
+        let rawText = "No text returned";
+
         // Try to parse the response
         let generatedImage = null;
         try {
-            let textPart = data.candidates[0].content.parts[0].text;
-            // Clean up markdown if present (e.g. ```json ... ```)
-            textPart = textPart.replace(/```json/g, '').replace(/```/g, '').trim();
+            if (!data.candidates || data.candidates.length === 0) {
+                 throw new Error("No candidates returned. Safety settings might have blocked the response.");
+            }
             
-            const parsed = JSON.parse(textPart);
-            generatedImage = parsed.image_data;
-            
-            if (generatedImage) {
-                // Remove prefix if mistakenly included by the AI
-                generatedImage = generatedImage.replace(/^data:image\/\w+;base64,/, '');
-                // Remove any whitespace (newlines, spaces) which can break base64
-                generatedImage = generatedImage.replace(/\s/g, '');
+            const candidate = data.candidates[0];
+            if (candidate.finishReason && candidate.finishReason !== "STOP") {
+                 console.warn("Finish reason:", candidate.finishReason);
+                 // Some finish reasons like SAFETY might result in no content
+            }
+
+            if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
+                rawText = candidate.content.parts[0].text;
+                let textPart = rawText;
+                
+                // Clean up markdown if present
+                textPart = textPart.replace(/```json/g, '').replace(/```/g, '').trim();
+                
+                const parsed = JSON.parse(textPart);
+                generatedImage = parsed.image_data;
+                
+                if (generatedImage) {
+                    generatedImage = generatedImage.replace(/^data:image\/\w+;base64,/, '');
+                    generatedImage = generatedImage.replace(/\s/g, '');
+                }
             }
         } catch (e) {
             console.error("Failed to parse Gemini response:", e);
+            console.error("Raw text was:", rawText);
+            // Include raw text in error for debugging if it's short, otherwise truncate
+            const debugText = rawText.length > 200 ? rawText.substring(0, 200) + "..." : rawText;
+            throw new Error(`Failed to parse AI response: ${e.message}. Raw output: ${debugText}`);
         }
 
         if (!generatedImage) {
-             throw new Error("Failed to generate image with Gemini.");
+             throw new Error(`Failed to extract image data from response. Raw output: ${rawText.substring(0, 100)}...`);
         }
 
         return new Response(JSON.stringify({
