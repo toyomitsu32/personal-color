@@ -35,8 +35,8 @@ export async function onRequestPost(context) {
         // Prepare the image (remove header)
         const base64Image = image.replace(/^data:image\/\w+;base64,/, "");
 
-        // Using Gemini 1.5 Flash for speed and stability
-        const modelName = "gemini-1.5-flash"; 
+        // Using specific version 001 for stability as aliases can be fickle
+        const modelName = "gemini-1.5-flash-001"; 
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
         const systemPrompt = `You are an expert AI hair stylist. 
