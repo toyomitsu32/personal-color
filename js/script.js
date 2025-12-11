@@ -564,6 +564,8 @@ async function generateThreeHairColors(season, password = '') {
                              throw aiError; // パスワードエラーは全体を中断またはユーザーに通知
                         }
                         // その他のエラーならCanvasフォールバックへ（今回は単純化のためフォールバック）
+                        // エラーを表示してからフォールバック
+                        alert(`AI生成エラー: ${aiError.message}\n簡易モード（ブラウザ描画）で生成します。`);
                         console.log("Falling back to canvas implementation due to AI error.");
                         const maskCanvas = createPreciseHairMask(originalCanvas, currentLandmarks, currentHairColor);
                         resultCanvas = applyHairColor(originalCanvas, maskCanvas, colorInfo.color);

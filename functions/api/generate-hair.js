@@ -35,8 +35,8 @@ export async function onRequestPost(context) {
         // Prepare the image (remove header)
         const base64Image = image.replace(/^data:image\/\w+;base64,/, "");
 
-        // Using Gemini 1.5 Pro (assuming it's what user calls Nano Banana Pro)
-        const modelName = "gemini-1.5-pro-latest"; 
+        // Using Gemini 1.5 Flash for speed and stability
+        const modelName = "gemini-1.5-flash"; 
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
         const systemPrompt = `You are an expert AI hair stylist. 
