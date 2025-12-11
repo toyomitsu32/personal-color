@@ -106,6 +106,7 @@ export function applyHairColor(canvas, maskCanvas, newColor) {
     
     // HEXをRGBに変換
     const targetColor = hexToRgb(newColor);
+    const targetBrightness = (targetColor.r + targetColor.g + targetColor.b) / 3;
     
     // 各ピクセルを処理
     for (let i = 0; i < pixels.length; i += 4) {
@@ -116,17 +117,36 @@ export function applyHairColor(canvas, maskCanvas, newColor) {
             const g = pixels[i + 1];
             const b = pixels[i + 2];
             
-            // 元の明度を保持しながら色相を変更
+            // 元の明度を計算
             const brightness = (r + g + b) / 3;
-            const brightnessRatio = brightness / 128; // 正規化
             
-            // 新しい色に元の明度を適用
-            const newR = Math.min(255, targetColor.r * brightnessRatio);
-            const newG = Math.min(255, targetColor.g * brightnessRatio);
-            const newB = Math.min(255, targetColor.b * brightnessRatio);
+            // 明度調整ロジック:
+            // 元の明度とターゲットの明度をミックスする（黒髪を明るく染められるように）
+            // ターゲット色が明るい場合は、元の明度をブーストする
+            let resultBrightness = brightness;
+            
+            // ターゲット色が元の色より明るい場合（例：黒髪→金髪）
+            if (targetBrightness > brightness) {
+                // 明るさを持ち上げる (ブリーチ効果)
+                resultBrightness = (brightness * 0.4) + (targetBrightness * 0.6);
+            } else {
+                // ターゲット色が暗い場合は、元の陰影を維持しつつ少し暗くする
+                resultBrightness = (brightness * 0.7) + (targetBrightness * 0.3);
+            }
+            
+            // 正規化された輝度係数
+            const luminanceFactor = resultBrightness / 255;
+            
+            // ターゲット色に輝度を適用 (Color Burn/Multiply的な合成)
+            // 単純な乗算だと彩度が落ちるので、少し強調
+            const newR = Math.min(255, targetColor.r * (luminanceFactor * 1.2));
+            const newG = Math.min(255, targetColor.g * (luminanceFactor * 1.2));
+            const newB = Math.min(255, targetColor.b * (luminanceFactor * 1.2));
             
             // ブレンド（マスクの強度に応じて）
-            const blendStrength = maskAlpha * 0.7; // 70%の強度で適用
+            // 合成強度を上げて、色がはっきり出るようにする (0.7 -> 0.85)
+            const blendStrength = maskAlpha * 0.85; 
+            
             pixels[i] = r * (1 - blendStrength) + newR * blendStrength;
             pixels[i + 1] = g * (1 - blendStrength) + newG * blendStrength;
             pixels[i + 2] = b * (1 - blendStrength) + newB * blendStrength;
