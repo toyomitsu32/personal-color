@@ -35,10 +35,9 @@ export async function onRequestPost(context) {
         // Prepare the image (remove header)
         const base64Image = image.replace(/^data:image\/\w+;base64,/, "");
 
-        // Using "Pro" model as requested for "high precision" (mapped to gemini-1.5-pro)
-        // gemini-1.5-pro-001 supports JSON response
-        const modelName = "gemini-1.5-pro-001"; 
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+        // Using "Nano Banana Pro" (Gemini 2.0 Flash) as requested
+        const modelName = "gemini-2.0-flash"; 
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
 
         const systemPrompt = `You are an expert AI hair stylist (Nano Banana Pro). 
         Change the hair color of the person in this image to ${color} (${prompt}).
@@ -64,7 +63,10 @@ export async function onRequestPost(context) {
 
         const apiResponse = await fetch(url, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { 
+                "Content-Type": "application/json",
+                "X-goog-api-key": apiKey
+            },
             body: JSON.stringify(payload)
         });
 
