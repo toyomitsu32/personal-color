@@ -41,8 +41,8 @@ export async function onRequestPost(context) {
 
         const systemPrompt = `You are an expert AI hair stylist (Nano Banana Pro). 
         Change the hair color of the person in this image to ${color} (${prompt}).
-        Return a valid JSON object with a single key 'image_data' containing the base64 encoded string of the edited image.
-        IMPORTANT: Return ONLY the raw JSON string. Do not use Markdown code blocks (like \`\`\`json).`;
+        Return a valid JSON object with a single key 'image_data' containing the base64 encoded string of the edited image in JPEG format.
+        IMPORTANT: Return ONLY the raw JSON string. Do not use Markdown code blocks. The base64 string should NOT include the 'data:image/jpeg;base64,' prefix.`;
 
         const payload = {
             contents: [{
@@ -80,9 +80,19 @@ export async function onRequestPost(context) {
         // Try to parse the response
         let generatedImage = null;
         try {
-            const textPart = data.candidates[0].content.parts[0].text;
+            let textPart = data.candidates[0].content.parts[0].text;
+            // Clean up markdown if present (e.g. ```json ... ```)
+            textPart = textPart.replace(/```json/g, '').replace(/```/g, '').trim();
+            
             const parsed = JSON.parse(textPart);
             generatedImage = parsed.image_data;
+            
+            if (generatedImage) {
+                // Remove prefix if mistakenly included by the AI
+                generatedImage = generatedImage.replace(/^data:image\/\w+;base64,/, '');
+                // Remove any whitespace (newlines, spaces) which can break base64
+                generatedImage = generatedImage.replace(/\s/g, '');
+            }
         } catch (e) {
             console.error("Failed to parse Gemini response:", e);
         }
