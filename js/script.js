@@ -122,8 +122,18 @@ function resetToNewImage() {
     
     // 完全リセット
     fileInput.value = '';
-    previewContainer.classList.add('hidden');
-    uploadContainer.classList.remove('hidden');
+    
+    // Reset Layout
+    const uploadWrapper = document.getElementById('upload-wrapper');
+    const analysisSection = document.getElementById('analysis-section');
+    const simulationSection = document.getElementById('simulation-section');
+    
+    uploadWrapper.classList.remove('hidden');
+    analysisSection.classList.add('hidden', 'opacity-0');
+    simulationSection.classList.add('hidden');
+    
+    previewContainer.classList.add('hidden'); // Legacy container check, but logic moved to layout switching
+    
     resultsGrid.classList.add('hidden');
     statusCard.classList.add('hidden');
     errorCard.classList.add('hidden');
@@ -201,13 +211,24 @@ function processFile(file) {
 }
 
 async function runInference(img) {
-    // Show loading
-    uploadContainer.classList.add('hidden');
-    previewContainer.classList.remove('hidden');
-    document.getElementById('floating-actions-container').classList.remove('hidden');
-    loadingOverlay.classList.remove('hidden'); // Reuse overlay if possible, but it's inside upload container. 
-    // Let's just show preview immediately.
+    const uploadWrapper = document.getElementById('upload-wrapper');
+    const analysisSection = document.getElementById('analysis-section');
+    const simulationSection = document.getElementById('simulation-section');
+    
+    // UI Layout Switching
+    uploadWrapper.classList.add('hidden');
+    analysisSection.classList.remove('hidden');
+    // simulationSection remains hidden until diagnosis is complete
+    
+    // Add small delay for opacity transition effect
+    setTimeout(() => {
+        analysisSection.classList.remove('opacity-0');
+    }, 50);
 
+    // Show loading (reuse overlay in upload container if needed, but we are switching layout)
+    // Actually, we should keep upload container visible until image is processed?
+    // Let's hide it and show preview immediately as per new layout.
+    
     // Resize canvas to match image, but max width/height limits
     const maxWidth = 800;
     const scale = Math.min(1, maxWidth / img.width);
@@ -369,6 +390,9 @@ function analyzeColors(landmarks, ctx) {
     
     // ヘアカラーシミュレーション機能を有効化
     initHairSimulation(diagnosis.season);
+    
+    // 表示セクションを有効化
+    document.getElementById('simulation-section').classList.remove('hidden');
 }
 
 function drawPoint(ctx, x, y, type) {
@@ -479,36 +503,9 @@ function initHairSimulation(season) {
         const passwordInput = document.getElementById('ai-password-input');
         const password = passwordInput ? passwordInput.value.trim() : '';
         
-        // パスワードがある場合は先に検証
-        if (password) {
-            const generateBtn = document.getElementById('generate-hair-colors-btn');
-            const originalBtnText = document.getElementById('generate-btn-text').innerText;
-            
-            // ボタンをローディング状態に
-            generateBtn.disabled = true;
-            generateBtn.classList.add('opacity-75', 'cursor-not-allowed');
-            document.getElementById('generate-btn-text').innerText = 'パスワード確認中...';
-            
-            const verifyResult = await verifyPassword(password);
-            
-            // ボタンの状態を戻す
-            generateBtn.disabled = false;
-            generateBtn.classList.remove('opacity-75', 'cursor-not-allowed');
-            document.getElementById('generate-btn-text').innerText = originalBtnText;
-
-            if (!verifyResult.isValid) {
-                alert("パスワードが間違っています。\n正しいパスワードを入力するか、空欄のままにして簡易モードを使用してください。");
-                return; // 中断
-            }
-
-            if (!verifyResult.googleApiConfigured) {
-                 alert("パスワードは正しいですが、サーバー側でGoogle APIキーが設定されていません。\n管理者に連絡するか、簡易モード（パスワード空欄）を使用してください。");
-                 return; // 中断 or 簡易モードへ誘導?
-                 // User likely wants to know status, so alert is good.
-                 // If they want to force simple mode, they can clear password.
-            }
-        }
-
+        // 以前の明示的なverifyPassword呼び出しを削除し、
+        // 1枚目の生成結果（認証成否）を後続に適用するフローへ変更
+        
         await generateThreeHairColors(season, password);
     });
 }
@@ -528,7 +525,7 @@ async function generateThreeHairColors(season, password = '') {
     aiGeneratedImages = [];
     
     // AIを使用するかどうか判定
-    const useAI = (password && password.trim() !== '');
+    let useAI = (password && password.trim() !== '');
 
     try {
         // シーズンに合わせた3つのカラーを取得
@@ -558,19 +555,19 @@ async function generateThreeHairColors(season, password = '') {
                         resultCanvas = await loadImageToCanvas(imageUrl);
                     } catch (aiError) {
                         console.error(`AI generation failed for ${colorInfo.name}:`, aiError);
-                        // AI失敗時はフォールバックせずにエラーを表示するか、
-                        // または「パスワード間違い」などの明確な理由ならそれを表示
-                        if (aiError.message.includes("パスワード")) {
-                             throw aiError; // パスワードエラーは全体を中断またはユーザーに通知
+                        
+                        // エラーハンドリングの改善:
+                        // 1枚目でAI関連の致命的なエラーが出た場合、ユーザー体験を損なわないよう
+                        // 2枚目以降は自動的に簡易モードにフォールバックする
+                        if (i === 0) {
+                             alert(`AI生成エラー: ${aiError.message}\n\n以降のパターンは簡易モード（ブラウザ描画）で生成します。`);
+                             useAI = false; // フラグをオフにする
                         }
-                        // その他のエラーならCanvasフォールバックへ（今回は単純化のためフォールバック）
-                        // エラーを表示してからフォールバック
-                        alert(`AI生成エラー: ${aiError.message}\n簡易モード（ブラウザ描画）で生成します。`);
+                        
                         console.log("Falling back to canvas implementation due to AI error.");
                         const maskCanvas = createPreciseHairMask(originalCanvas, currentLandmarks, currentHairColor);
                         resultCanvas = applyHairColor(originalCanvas, maskCanvas, colorInfo.color);
                         imageUrl = null; 
-                        // エラーメッセージは記録せず、Canvas版を表示
                     }
                 } else {
                     // 通常のCanvas処理
