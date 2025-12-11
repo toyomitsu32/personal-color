@@ -41,13 +41,11 @@ export async function onRequestPost(context) {
 
         const systemPrompt = `You are an expert AI hair stylist (Nano Banana Pro). 
         Change the hair color of the person in this image to ${color} (${prompt}).
-        Return a valid JSON object with a single key 'image_data' containing the base64 encoded string of the edited image in JPEG format.
         
-        CRITICAL REQUIREMENTS:
-        1.  **RESIZE IMAGE TO 256x256 PIXELS MAX**. This is mandatory to prevent JSON truncation errors.
-        2.  **COMPRESS HEAVILY** (JPEG Quality 50) to keep the base64 string short.
-        3.  Return ONLY the raw JSON string. Do not use Markdown code blocks.
-        4.  The base64 string should NOT include the 'data:image/jpeg;base64,' prefix.`;
+        CRITICAL: Return ONLY the raw Base64 encoded JPEG string of the edited image.
+        1. NO JSON. NO MARKDOWN. NO HEADERS (like data:image/jpeg;base64,).
+        2. JUST THE RAW BASE64 STRING.
+        3. Resize image to 256x256 pixels and compress (JPEG quality 50) to keep string short.`;
 
         const payload = {
             contents: [{
@@ -62,7 +60,7 @@ export async function onRequestPost(context) {
                 ]
             }],
             generationConfig: {
-                response_mime_type: "application/json",
+                response_mime_type: "text/plain",
                 maxOutputTokens: 8192
             },
             safetySettings: [
@@ -102,34 +100,27 @@ export async function onRequestPost(context) {
             const candidate = data.candidates[0];
             if (candidate.finishReason && candidate.finishReason !== "STOP") {
                  console.warn("Finish reason:", candidate.finishReason);
-                 // Some finish reasons like SAFETY might result in no content
             }
 
             if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
-                rawText = candidate.content.parts[0].text;
-                let textPart = rawText;
+                rawText = candidate.content.parts[0].text.trim();
                 
-                // Clean up markdown if present
-                textPart = textPart.replace(/```json/g, '').replace(/```/g, '').trim();
+                // Clean up possible markdown or headers just in case
+                let base64String = rawText;
+                base64String = base64String.replace(/```\w*/g, '').replace(/```/g, '').trim();
+                base64String = base64String.replace(/^data:image\/\w+;base64,/, '');
+                base64String = base64String.replace(/\s/g, '');
                 
-                const parsed = JSON.parse(textPart);
-                generatedImage = parsed.image_data;
-                
-                if (generatedImage) {
-                    generatedImage = generatedImage.replace(/^data:image\/\w+;base64,/, '');
-                    generatedImage = generatedImage.replace(/\s/g, '');
-                }
+                generatedImage = base64String;
             }
         } catch (e) {
             console.error("Failed to parse Gemini response:", e);
-            console.error("Raw text was:", rawText);
-            // Include raw text in error for debugging if it's short, otherwise truncate
-            const debugText = rawText.length > 200 ? rawText.substring(0, 200) + "..." : rawText;
-            throw new Error(`Failed to parse AI response: ${e.message}. Raw output: ${debugText}`);
+            throw new Error(`Failed to parse AI response: ${e.message}`);
         }
 
-        if (!generatedImage) {
-             throw new Error(`Failed to extract image data from response. Raw output: ${rawText.substring(0, 100)}...`);
+        if (!generatedImage || generatedImage.length < 100) {
+             // If string is too short, it's likely an error message or refusal
+             throw new Error(`AI returned invalid data (length ${generatedImage ? generatedImage.length : 0}). Raw output start: ${rawText.substring(0, 50)}...`);
         }
 
         return new Response(JSON.stringify({
