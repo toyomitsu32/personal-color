@@ -35,15 +35,14 @@ export async function onRequestPost(context) {
         // Prepare the image (remove header)
         const base64Image = image.replace(/^data:image\/\w+;base64,/, "");
 
-        // Try using the stable 'v1' API instead of 'v1beta'
-        // And revert to the standard alias 'gemini-1.5-flash'
-        const modelName = "gemini-1.5-flash"; 
-        const url = `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${apiKey}`;
+        // Using specific version gemini-1.5-flash-001 with v1beta for JSON support
+        const modelName = "gemini-1.5-flash-001"; 
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
         const systemPrompt = `You are an expert AI hair stylist. 
         Change the hair color of the person in this image to ${color} (${prompt}).
         Return a valid JSON object with a single key 'image_data' containing the base64 encoded string of the edited image.
-        Do not wrap the JSON in markdown code blocks.`;
+        IMPORTANT: Return ONLY the raw JSON string. Do not use Markdown code blocks (like \`\`\`json).`;
 
         const payload = {
             contents: [{
