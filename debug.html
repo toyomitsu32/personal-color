@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Debugger</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 p-8">
+    <div class="max-w-2xl mx-auto bg-white rounded-xl shadow p-6">
+        <h1 class="text-2xl font-bold mb-4">Gemini API モデル確認ツール</h1>
+        <p class="text-sm text-slate-600 mb-4">
+            サーバーに設定されたAPIキーで利用可能なモデル一覧を取得します。<br>
+            ACCESS_PASSWORDを入力して「確認する」を押してください。
+        </p>
+        
+        <div class="mb-4">
+            <input type="password" id="password" class="w-full border p-2 rounded" placeholder="ACCESS_PASSWORD">
+        </div>
+        
+        <button id="check-btn" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+            確認する
+        </button>
+        
+        <div id="result" class="mt-6 p-4 bg-slate-50 rounded hidden">
+            <h3 class="font-bold mb-2">結果:</h3>
+            <pre id="output" class="text-xs overflow-auto max-h-96"></pre>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('check-btn').addEventListener('click', async () => {
+            const password = document.getElementById('password').value;
+            const output = document.getElementById('output');
+            const resultDiv = document.getElementById('result');
+            
+            output.innerText = "確認中...";
+            resultDiv.classList.remove('hidden');
+            
+            try {
+                const response = await fetch('/api/list-models', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ accessPassword: password })
+                });
+                
+                const data = await response.json();
+                output.innerText = JSON.stringify(data, null, 2);
+            } catch (e) {
+                output.innerText = "エラー: " + e.message;
+            }
+        });
+    </script>
+</body>
+</html>
