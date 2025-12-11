@@ -16,9 +16,13 @@ export async function onRequestPost(context) {
         }
 
         if (accessPassword === requiredPassword) {
+            // Check if GOOGLE_API_KEY is configured
+            const googleApiConfigured = !!env.GOOGLE_API_KEY;
+            
             return new Response(JSON.stringify({
                 success: true,
-                message: "Password verified."
+                message: "Password verified.",
+                googleApiConfigured: googleApiConfigured
             }), { status: 200, headers: { "Content-Type": "application/json" } });
         } else {
              return new Response(JSON.stringify({

@@ -151,10 +151,10 @@ export function getThreeRecommendedColors(season) {
 /**
  * パスワードを検証する
  * @param {string} password - アクセスパスワード
- * @returns {Promise<boolean>} - 有効な場合true
+ * @returns {Promise<object>} - { isValid: boolean, googleApiConfigured: boolean }
  */
 export async function verifyPassword(password) {
-    if (!password) return false;
+    if (!password) return { isValid: false, googleApiConfigured: false };
 
     try {
         const response = await fetch('/api/verify-password', {
@@ -167,12 +167,15 @@ export async function verifyPassword(password) {
 
         if (response.ok) {
             const data = await response.json();
-            return data.success;
+            return { 
+                isValid: data.success, 
+                googleApiConfigured: data.googleApiConfigured 
+            };
         }
-        return false;
+        return { isValid: false, googleApiConfigured: false };
     } catch (error) {
         console.error('Password verification failed:', error);
-        return false;
+        return { isValid: false, googleApiConfigured: false };
     }
 }
 

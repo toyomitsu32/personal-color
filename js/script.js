@@ -489,16 +489,23 @@ function initHairSimulation(season) {
             generateBtn.classList.add('opacity-75', 'cursor-not-allowed');
             document.getElementById('generate-btn-text').innerText = 'パスワード確認中...';
             
-            const isValid = await verifyPassword(password);
+            const verifyResult = await verifyPassword(password);
             
             // ボタンの状態を戻す
             generateBtn.disabled = false;
             generateBtn.classList.remove('opacity-75', 'cursor-not-allowed');
             document.getElementById('generate-btn-text').innerText = originalBtnText;
 
-            if (!isValid) {
+            if (!verifyResult.isValid) {
                 alert("パスワードが間違っています。\n正しいパスワードを入力するか、空欄のままにして簡易モードを使用してください。");
                 return; // 中断
+            }
+
+            if (!verifyResult.googleApiConfigured) {
+                 alert("パスワードは正しいですが、サーバー側でGoogle APIキーが設定されていません。\n管理者に連絡するか、簡易モード（パスワード空欄）を使用してください。");
+                 return; // 中断 or 簡易モードへ誘導?
+                 // User likely wants to know status, so alert is good.
+                 // If they want to force simple mode, they can clear password.
             }
         }
 
