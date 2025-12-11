@@ -42,8 +42,12 @@ export async function onRequestPost(context) {
         const systemPrompt = `You are an expert AI hair stylist (Nano Banana Pro). 
         Change the hair color of the person in this image to ${color} (${prompt}).
         Return a valid JSON object with a single key 'image_data' containing the base64 encoded string of the edited image in JPEG format.
-        IMPORTANT: Return ONLY the raw JSON string. Do not use Markdown code blocks. The base64 string should NOT include the 'data:image/jpeg;base64,' prefix.
-        IMPORTANT: Ensure the output image is resized to maximum 512x512 pixels and compressed (JPEG quality 60) to fit within the output token limit.`;
+        
+        CRITICAL REQUIREMENTS:
+        1.  **RESIZE IMAGE TO 256x256 PIXELS MAX**. This is mandatory to prevent JSON truncation errors.
+        2.  **COMPRESS HEAVILY** (JPEG Quality 50) to keep the base64 string short.
+        3.  Return ONLY the raw JSON string. Do not use Markdown code blocks.
+        4.  The base64 string should NOT include the 'data:image/jpeg;base64,' prefix.`;
 
         const payload = {
             contents: [{
