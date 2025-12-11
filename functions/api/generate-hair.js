@@ -35,8 +35,8 @@ export async function onRequestPost(context) {
         // Prepare the image (remove header)
         const base64Image = image.replace(/^data:image\/\w+;base64,/, "");
 
-        // User requested model
-        const modelName = "gemini-2.5-flash-image"; 
+        // User requested model correction: Use generic multimodal name if specific one fails or is not standard
+        const modelName = "gemini-2.0-flash"; // Reverting to standard Flash model which supports image I/O
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
 
         // Simplified prompt for native image generation/editing
@@ -55,7 +55,12 @@ export async function onRequestPost(context) {
                 ]
             }],
             generationConfig: {
-                response_mime_type: "image/jpeg" 
+                // Corrected MIME type as per instructions: application/json for structured data or text/plain for raw
+                // If using native image generation, response_mime_type should be removed or set to specific supported types.
+                // However, standard Flash model returns text/json usually.
+                // To support direct image output, we rely on the model's capability to return inline_data in the response part.
+                // We will remove explicit response_mime_type to let the model decide the best output format (which can be multimodal).
+                // If we want JSON, we use application/json. 
             },
             safetySettings: [
                 { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
