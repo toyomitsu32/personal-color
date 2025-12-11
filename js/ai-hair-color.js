@@ -149,6 +149,34 @@ export function getThreeRecommendedColors(season) {
 }
 
 /**
+ * パスワードを検証する
+ * @param {string} password - アクセスパスワード
+ * @returns {Promise<boolean>} - 有効な場合true
+ */
+export async function verifyPassword(password) {
+    if (!password) return false;
+
+    try {
+        const response = await fetch('/api/verify-password', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ accessPassword: password })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            return data.success;
+        }
+        return false;
+    } catch (error) {
+        console.error('Password verification failed:', error);
+        return false;
+    }
+}
+
+/**
  * 画像URLをキャンバスに読み込む
  */
 export async function loadImageToCanvas(imageUrl) {

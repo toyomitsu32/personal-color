@@ -6,7 +6,7 @@ import {
 import { diagnosePersonalColor } from './color-diagnosis.js';
 import { createHairMask, applyHairColor, getHairColorPalette } from './hair-simulation.js';
 import { createPreciseHairMask, initImageSegmenter } from './hair-segmentation.js';
-import { changeHairColorWithAI, getThreeRecommendedColors, loadImageToCanvas, canvasToBase64 } from './ai-hair-color.js';
+import { changeHairColorWithAI, getThreeRecommendedColors, loadImageToCanvas, canvasToBase64, verifyPassword } from './ai-hair-color.js';
 
 const fileInput = document.getElementById('file-input');
 const uploadContainer = document.getElementById('upload-container');
@@ -477,7 +477,31 @@ function initHairSimulation(season) {
     newGenerateBtn.addEventListener('click', async () => {
         // パスワードを取得（都度入力フィールドから）
         const passwordInput = document.getElementById('ai-password-input');
-        const password = passwordInput ? passwordInput.value : '';
+        const password = passwordInput ? passwordInput.value.trim() : '';
+        
+        // パスワードがある場合は先に検証
+        if (password) {
+            const generateBtn = document.getElementById('generate-hair-colors-btn');
+            const originalBtnText = document.getElementById('generate-btn-text').innerText;
+            
+            // ボタンをローディング状態に
+            generateBtn.disabled = true;
+            generateBtn.classList.add('opacity-75', 'cursor-not-allowed');
+            document.getElementById('generate-btn-text').innerText = 'パスワード確認中...';
+            
+            const isValid = await verifyPassword(password);
+            
+            // ボタンの状態を戻す
+            generateBtn.disabled = false;
+            generateBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+            document.getElementById('generate-btn-text').innerText = originalBtnText;
+
+            if (!isValid) {
+                alert("パスワードが間違っています。\n正しいパスワードを入力するか、空欄のままにして簡易モードを使用してください。");
+                return; // 中断
+            }
+        }
+
         await generateThreeHairColors(season, password);
     });
 }
