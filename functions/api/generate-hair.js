@@ -90,14 +90,25 @@ export async function onRequestPost(context) {
         try {
             if (data.candidates && data.candidates[0].content && data.candidates[0].content.parts) {
                 for (const part of data.candidates[0].content.parts) {
-                    // Check for inline_data (Native Image Output)
-                    if (part.inline_data && part.inline_data.data) {
-                        generatedImage = part.inline_data.data;
-                        break;
+                    // Check for inline_data (Native Image Output) - handle both snake_case and camelCase
+                    const inlineData = part.inline_data || part.inlineData;
+                    
+                    if (inlineData && inlineData.data) {
+                        generatedImage = inlineData.data;
+                        // Capture mimeType if available (default to jpeg)
+                        const mimeType = inlineData.mimeType || inlineData.mime_type || "image/jpeg";
+                        
+                        // Return immediately upon finding image
+                        return new Response(JSON.stringify({
+                            success: true,
+                            imageUrl: `data:${mimeType};base64,${generatedImage}`
+                        }), { headers: { "Content-Type": "application/json" } });
                     }
+                    
                     // Fallback check for text if image failed
                     if (part.text && !generatedImage) {
-                         console.warn("Model returned text:", part.text);
+                         // Keep looking, maybe image is in next part
+                         console.log("Log: Part contains text:", part.text);
                     }
                 }
             }
