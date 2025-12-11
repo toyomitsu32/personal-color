@@ -42,10 +42,11 @@ export async function onRequestPost(context) {
         const systemPrompt = `You are an expert AI hair stylist (Nano Banana Pro). 
         Change the hair color of the person in this image to ${color} (${prompt}).
         
-        CRITICAL: Return ONLY the raw Base64 encoded JPEG string of the edited image.
-        1. NO JSON. NO MARKDOWN. NO HEADERS (like data:image/jpeg;base64,).
-        2. JUST THE RAW BASE64 STRING.
-        3. Resize image to 256x256 pixels and compress (JPEG quality 50) to keep string short.`;
+        CRITICAL: The output MUST be a valid, very short Base64 string to fit in the response limit.
+        1.  **DOWNSCALE the image to 128x128 pixels**. This is MANDATORY.
+        2.  **COMPRESS** with low JPEG quality (30-50).
+        3.  Return **ONLY** the raw Base64 string of this small, compressed image.
+        4.  No JSON, no Markdown, no headers. JUST THE STRING.`;
 
         const payload = {
             contents: [{
@@ -61,7 +62,8 @@ export async function onRequestPost(context) {
             }],
             generationConfig: {
                 response_mime_type: "text/plain",
-                maxOutputTokens: 8192
+                maxOutputTokens: 8192,
+                temperature: 0.4
             },
             safetySettings: [
                 { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
