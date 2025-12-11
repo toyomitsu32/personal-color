@@ -35,8 +35,8 @@ export async function onRequestPost(context) {
         // Prepare the image (remove header)
         const base64Image = image.replace(/^data:image\/\w+;base64,/, "");
 
-        // Use Gemini 1.5 Pro for better instruction following (strict format)
-        const modelName = "gemini-1.5-pro"; 
+        // Use Gemini 2.0 Flash as it is confirmed working and fast
+        const modelName = "gemini-2.0-flash"; 
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
 
         // Prompt designed to force the LLM to act as an image processor via Base64 text
