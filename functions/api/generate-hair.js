@@ -35,18 +35,12 @@ export async function onRequestPost(context) {
         // Prepare the image (remove header)
         const base64Image = image.replace(/^data:image\/\w+;base64,/, "");
 
-        // Using "Nano Banana Pro" (Gemini 2.0 Flash) as requested
-        const modelName = "gemini-2.0-flash"; 
+        // User requested model
+        const modelName = "gemini-2.5-flash-image"; 
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
 
-        const systemPrompt = `You are an expert AI hair stylist (Nano Banana Pro). 
-        Change the hair color of the person in this image to ${color} (${prompt}).
-        
-        CRITICAL: The output MUST be a valid, very short Base64 string to fit in the response limit.
-        1.  **DOWNSCALE the image to 128x128 pixels**. This is MANDATORY.
-        2.  **COMPRESS** with low JPEG quality (30-50).
-        3.  Return **ONLY** the raw Base64 string of this small, compressed image.
-        4.  No JSON, no Markdown, no headers. JUST THE STRING.`;
+        // Simplified prompt for native image generation/editing
+        const systemPrompt = `Change the hair color of the person in this image to ${color} (${prompt}).`;
 
         const payload = {
             contents: [{
@@ -61,9 +55,7 @@ export async function onRequestPost(context) {
                 ]
             }],
             generationConfig: {
-                response_mime_type: "text/plain",
-                maxOutputTokens: 8192,
-                temperature: 0.4
+                response_mime_type: "image/jpeg" 
             },
             safetySettings: [
                 { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
@@ -89,40 +81,32 @@ export async function onRequestPost(context) {
 
         const data = await apiResponse.json();
         
-        // Debug info in case of failure
-        let rawText = "No text returned";
-
-        // Try to parse the response
         let generatedImage = null;
+        
+        // Handle Gemini Native Image Response (inline_data)
+        // Python equivalent: if part.inline_data is not None: image = part.as_image()
         try {
-            if (!data.candidates || data.candidates.length === 0) {
-                 throw new Error("No candidates returned. Safety settings might have blocked the response.");
-            }
-            
-            const candidate = data.candidates[0];
-            if (candidate.finishReason && candidate.finishReason !== "STOP") {
-                 console.warn("Finish reason:", candidate.finishReason);
-            }
-
-            if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
-                rawText = candidate.content.parts[0].text.trim();
-                
-                // Clean up possible markdown or headers just in case
-                let base64String = rawText;
-                base64String = base64String.replace(/```\w*/g, '').replace(/```/g, '').trim();
-                base64String = base64String.replace(/^data:image\/\w+;base64,/, '');
-                base64String = base64String.replace(/\s/g, '');
-                
-                generatedImage = base64String;
+            if (data.candidates && data.candidates[0].content && data.candidates[0].content.parts) {
+                for (const part of data.candidates[0].content.parts) {
+                    // Check for inline_data (Native Image Output)
+                    if (part.inline_data && part.inline_data.data) {
+                        generatedImage = part.inline_data.data;
+                        break;
+                    }
+                    // Fallback: Check if it returned text (error or refusal)
+                    if (part.text) {
+                        console.warn("Model returned text instead of image:", part.text);
+                    }
+                }
             }
         } catch (e) {
             console.error("Failed to parse Gemini response:", e);
-            throw new Error(`Failed to parse AI response: ${e.message}`);
         }
 
-        if (!generatedImage || generatedImage.length < 100) {
-             // If string is too short, it's likely an error message or refusal
-             throw new Error(`AI returned invalid data (length ${generatedImage ? generatedImage.length : 0}). Raw output start: ${rawText.substring(0, 50)}...`);
+        if (!generatedImage) {
+             // Extract raw text for debugging if image missing
+             const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "No text";
+             throw new Error(`Failed to generate image. Model response: ${rawText}`);
         }
 
         return new Response(JSON.stringify({
