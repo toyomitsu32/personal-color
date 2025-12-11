@@ -5,7 +5,7 @@
 /**
  * 画像をbase64に変換
  */
-async function canvasToBase64(canvas) {
+export async function canvasToBase64(canvas) {
     return canvas.toDataURL('image/jpeg', 0.9);
 }
 
@@ -14,12 +14,48 @@ async function canvasToBase64(canvas) {
  * @param {string} imageBase64 - 元画像のbase64 (data URL形式)
  * @param {string} targetColor - ターゲットカラー名（例: "blonde", "brown", "black"）
  * @param {string} colorDescription - カラーの詳細説明
+ * @param {string} password - アクセスパスワード
  * @returns {Promise<string>} - 生成された画像のURL
  */
-export async function changeHairColorWithAI(imageBase64, targetColor, colorDescription) {
-    // この関数は image_generation ツールが利用できる環境でのみ動作します
-    // 静的サイトでは直接呼び出せないため、エラーメッセージを返します
-    throw new Error('AI画像生成機能は、このツールでは利用できません。サーバーサイドの実装が必要です。');
+export async function changeHairColorWithAI(imageBase64, targetColor, colorDescription, password) {
+    if (!password) {
+        throw new Error("パスワードが必要です。");
+    }
+
+    try {
+        const response = await fetch('/api/generate-hair', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                image: imageBase64,
+                prompt: colorDescription,
+                color: targetColor,
+                accessPassword: password
+            })
+        });
+
+        if (response.status === 401) {
+            throw new Error("パスワードが間違っています。");
+        }
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Server Error: ${errorText}`);
+        }
+
+        const data = await response.json();
+        
+        if (!data.success || !data.imageUrl) {
+            throw new Error(data.error || '画像生成に失敗しました');
+        }
+
+        return data.imageUrl;
+    } catch (error) {
+        console.error('AI Generation Error:', error);
+        throw error;
+    }
 }
 
 /**
@@ -85,7 +121,7 @@ export function getThreeRecommendedColors(season) {
                 color: '#654321',
                 aiColor: 'dark brown',
                 description: 'deep dark brown with warm undertones'
-            }
+            },
         ],
         winter: [
             {

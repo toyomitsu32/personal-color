@@ -12,6 +12,21 @@
 *   **無料枠が大きい**: 個人開発であれば無料プランで十分運用可能です。
 *   **Git連携**: GitHubにプッシュするだけで自動デプロイできます。
 
+## 環境変数の設定（AI機能用）
+
+AIによる高品質な画像生成機能を利用するには、Cloudflare Pagesのダッシュボードで以下の環境変数を設定する必要があります。
+
+1. Cloudflare Dashboardでプロジェクトを選択します。
+2. **Settings** > **Environment variables** に移動します。
+3. 以下の変数を追加します（Production と Preview の両方に追加することを推奨）：
+
+| 変数名 | 説明 | 例 |
+| :--- | :--- | :--- |
+| `GOOGLE_API_KEY` | Google AI Studio (Gemini) のAPIキー | `AIzaSy...` |
+| `ACCESS_PASSWORD` | AI機能の利用制限用パスワード | `SecretPassword123` |
+
+※ `ACCESS_PASSWORD` が設定されていない場合、またはユーザーが間違ったパスワードを入力した場合、AI機能は動作せず、自動的に簡易版（ブラウザ内描画）に切り替わります。
+
 ---
 
 ## 方法1: GitHub連携（推奨）

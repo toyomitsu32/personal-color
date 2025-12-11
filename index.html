@@ -71,6 +71,8 @@
 <body class="text-slate-800">
 
     <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <!-- Settings Button Removed -->
+
         <!-- Hero Header -->
         <header class="text-center mb-12">
             <div class="inline-flex items-center space-x-2 mb-4 px-4 py-2 bg-gradient-to-r from-purple-100 to-pink-100 rounded-full">
@@ -359,15 +361,20 @@
                             </span>
                         </p>
                         
-                        <!-- 注意メッセージ -->
-                        <div class="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
-                            <div class="flex items-start space-x-2">
-                                <span class="material-icons text-orange-500 text-sm mt-0.5">info</span>
-                                <div class="text-xs text-orange-700">
-                                    <p class="font-semibold mb-1">AI画像生成機能について</p>
-                                    <p>静的サイトではAI画像生成APIを直接呼び出せないため、この機能は現在利用できません。代わりにブラウザ内でのピクセル編集を使用しています。</p>
-                                </div>
+                        <!-- パスワード入力エリア -->
+                        <div class="mb-4">
+                            <label for="ai-password-input" class="block text-sm font-medium text-slate-700 mb-1">
+                                AI機能用パスワード（任意）
+                            </label>
+                            <div class="relative">
+                                <input type="password" id="ai-password-input" 
+                                    class="w-full pl-4 pr-10 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all" 
+                                    placeholder="ACCESS_PASSWORDを入力...">
                             </div>
+                            <p class="text-xs text-slate-500 mt-1">
+                                ※パスワードを入力すると高精度なAI（Nano Banana Pro）で生成します。<br>
+                                ※未入力の場合は簡易版（ブラウザ処理）で実行します。
+                            </p>
                         </div>
                         
                         <!-- 生成ボタン -->
@@ -482,6 +489,8 @@
             </div>
         </footer>
     </div>
+
+<!-- Settings Modal Removed -->
 
     <!-- MediaPipe Tasks Vision (via CDN) -->
     <script type="module" src="js/script.js"></script>

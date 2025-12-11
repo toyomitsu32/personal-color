@@ -6,7 +6,7 @@ import {
 import { diagnosePersonalColor } from './color-diagnosis.js';
 import { createHairMask, applyHairColor, getHairColorPalette } from './hair-simulation.js';
 import { createPreciseHairMask, initImageSegmenter } from './hair-segmentation.js';
-import { changeHairColorWithAI, getThreeRecommendedColors, loadImageToCanvas } from './ai-hair-color.js';
+import { changeHairColorWithAI, getThreeRecommendedColors, loadImageToCanvas, canvasToBase64 } from './ai-hair-color.js';
 
 const fileInput = document.getElementById('file-input');
 const uploadContainer = document.getElementById('upload-container');
@@ -68,6 +68,9 @@ async function createFaceLandmarker() {
 }
 
 createFaceLandmarker();
+
+// Settings Modal Logic Removed
+
 
 // Event Listeners
 uploadContainer.addEventListener('click', () => fileInput.click());
@@ -472,12 +475,15 @@ function initHairSimulation(season) {
     generateBtn.parentNode.replaceChild(newGenerateBtn, generateBtn);
     
     newGenerateBtn.addEventListener('click', async () => {
-        await generateThreeHairColors(season);
+        // パスワードを取得（都度入力フィールドから）
+        const passwordInput = document.getElementById('ai-password-input');
+        const password = passwordInput ? passwordInput.value : '';
+        await generateThreeHairColors(season, password);
     });
 }
 
 // Canvas編集で 3パターンのヘアカラーを生成
-async function generateThreeHairColors(season) {
+async function generateThreeHairColors(season, password = '') {
     if (!originalCanvas || !currentLandmarks || !currentHairColor) return;
     
     // UIの準備
@@ -490,30 +496,59 @@ async function generateThreeHairColors(season) {
     
     aiGeneratedImages = [];
     
+    // AIを使用するかどうか判定
+    const useAI = (password && password.trim() !== '');
+
     try {
         // シーズンに合わせた3つのカラーを取得
         const recommendedColors = getThreeRecommendedColors(season);
         
-        // 各カラーを順番に生成（Canvas編集）
+        // 各カラーを順番に生成
         for (let i = 0; i < recommendedColors.length; i++) {
             const colorInfo = recommendedColors[i];
             
             // 進捗表示を更新
-            progressText.innerText = `パターン ${i + 1}/3 を作成中: ${colorInfo.name}`;
+            progressText.innerText = `パターン ${i + 1}/3 を作成中: ${colorInfo.name} ${useAI ? '(AI生成中...)' : ''}`;
             progressBar.style.width = `${((i) / 3) * 100}%`;
             
             try {
                 // 短い待機時間を入れてUIを更新
                 await new Promise(resolve => setTimeout(resolve, 100));
                 
-                // Canvas編集で髪の色を変更
-                const maskCanvas = createPreciseHairMask(originalCanvas, currentLandmarks, currentHairColor);
-                const resultCanvas = applyHairColor(originalCanvas, maskCanvas, colorInfo.color);
+                let resultCanvas;
+                let imageUrl = null;
+                let errorMessage = null;
+
+                if (useAI) {
+                    try {
+                        // AI生成を試みる
+                        const imageBase64 = await canvasToBase64(originalCanvas);
+                        imageUrl = await changeHairColorWithAI(imageBase64, colorInfo.color, colorInfo.description, password);
+                        resultCanvas = await loadImageToCanvas(imageUrl);
+                    } catch (aiError) {
+                        console.error(`AI generation failed for ${colorInfo.name}:`, aiError);
+                        // AI失敗時はフォールバックせずにエラーを表示するか、
+                        // または「パスワード間違い」などの明確な理由ならそれを表示
+                        if (aiError.message.includes("パスワード")) {
+                             throw aiError; // パスワードエラーは全体を中断またはユーザーに通知
+                        }
+                        // その他のエラーならCanvasフォールバックへ（今回は単純化のためフォールバック）
+                        console.log("Falling back to canvas implementation due to AI error.");
+                        const maskCanvas = createPreciseHairMask(originalCanvas, currentLandmarks, currentHairColor);
+                        resultCanvas = applyHairColor(originalCanvas, maskCanvas, colorInfo.color);
+                        imageUrl = null; 
+                        // エラーメッセージは記録せず、Canvas版を表示
+                    }
+                } else {
+                    // 通常のCanvas処理
+                    const maskCanvas = createPreciseHairMask(originalCanvas, currentLandmarks, currentHairColor);
+                    resultCanvas = applyHairColor(originalCanvas, maskCanvas, colorInfo.color);
+                }
                 
                 aiGeneratedImages.push({
                     canvas: resultCanvas,
                     colorInfo: colorInfo,
-                    imageUrl: null
+                    imageUrl: imageUrl
                 });
                 
                 // 進捗バーを更新
@@ -521,11 +556,14 @@ async function generateThreeHairColors(season) {
                 
             } catch (error) {
                 console.error(`Failed to generate pattern ${i + 1}:`, error);
-                // エラーが発生してもスキップして続行
+                
+                // パスワードエラーの場合は明確にユーザーに伝える
+                let displayError = error.message;
+                
                 aiGeneratedImages.push({
                     canvas: null,
                     colorInfo: colorInfo,
-                    error: error.message
+                    error: displayError
                 });
             }
         }
@@ -566,7 +604,7 @@ function displayHairColorResults() {
                     </div>
                     <div class="flex-1">
                         <h4 class="font-semibold text-slate-800">${result.colorInfo.name}</h4>
-                        <p class="text-xs text-red-500">生成に失敗しました</p>
+                        <p class="text-xs text-red-500">${result.error}</p>
                     </div>
                 </div>
             `;
@@ -574,12 +612,16 @@ function displayHairColorResults() {
             // 成功の場合
             const tempCanvas = result.canvas;
             const imageDataUrl = tempCanvas.toDataURL('image/jpeg', 0.8);
+            const isAI = !!result.imageUrl;
             
             resultCard.innerHTML = `
                 <div class="flex items-center justify-between mb-2">
                     <div class="flex items-center space-x-2">
                         <div class="w-8 h-8 rounded-full border-2 border-white shadow" style="background-color: ${result.colorInfo.color}"></div>
-                        <h4 class="font-semibold text-slate-800">${result.colorInfo.name}</h4>
+                        <h4 class="font-semibold text-slate-800">
+                            ${result.colorInfo.name}
+                            ${isAI ? '<span class="ml-2 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">AI生成</span>' : ''}
+                        </h4>
                     </div>
                     <button class="view-result-btn text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center" data-index="${index}">
                         <span class="material-icons text-sm mr-1">visibility</span>
@@ -718,185 +760,3 @@ document.getElementById('show-after-btn').addEventListener('click', () => {
         document.getElementById('show-after-btn').className = 'flex-1 px-4 py-2 text-sm font-medium bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:shadow-md transition-all';
     }
 });
-
-// PDFエクスポート機能（一時的に無効化）
-/*
-document.getElementById('export-pdf-btn').addEventListener('click', async () => {
-    const { jsPDF } = window.jspdf;
-    
-    // 日本語フォントを使用するため、フォントファイルを埋め込む必要があります
-    // ここでは、Unicode対応のため画像として埋め込む方式を採用
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const margin = 15;
-    let yPos = margin;
-    
-    // タイトルを画像として追加（日本語文字化け回避）
-    const titleCanvas = document.createElement('canvas');
-    titleCanvas.width = 800;
-    titleCanvas.height = 100;
-    const titleCtx = titleCanvas.getContext('2d');
-    titleCtx.fillStyle = '#ffffff';
-    titleCtx.fillRect(0, 0, titleCanvas.width, titleCanvas.height);
-    titleCtx.fillStyle = '#1e293b';
-    titleCtx.font = 'bold 48px sans-serif';
-    titleCtx.textAlign = 'center';
-    titleCtx.fillText('パーソナルカラー診断結果', titleCanvas.width / 2, 60);
-    
-    const titleImg = titleCanvas.toDataURL('image/png');
-    pdf.addImage(titleImg, 'PNG', margin, yPos, pageWidth - margin * 2, 15);
-    yPos += 20;
-    
-    // 診断結果を画像として追加
-    if (currentDiagnosis) {
-        const infoCanvas = document.createElement('canvas');
-        infoCanvas.width = 800;
-        infoCanvas.height = 600;
-        const infoCtx = infoCanvas.getContext('2d');
-        
-        infoCtx.fillStyle = '#ffffff';
-        infoCtx.fillRect(0, 0, infoCanvas.width, infoCanvas.height);
-        
-        let textY = 40;
-        
-        // タイプ
-        infoCtx.fillStyle = '#7c3aed';
-        infoCtx.font = 'bold 36px sans-serif';
-        infoCtx.fillText(`あなたのタイプ: ${currentDiagnosis.seasonInfo.name}`, 30, textY);
-        textY += 50;
-        
-        // 説明
-        infoCtx.fillStyle = '#475569';
-        infoCtx.font = '20px sans-serif';
-        const description = wrapText(infoCtx, currentDiagnosis.seasonInfo.description, 30, 740);
-        description.forEach(line => {
-            infoCtx.fillText(line, 30, textY);
-            textY += 30;
-        });
-        textY += 20;
-        
-        // 特徴
-        infoCtx.fillStyle = '#1e293b';
-        infoCtx.font = 'bold 24px sans-serif';
-        infoCtx.fillText('あなたの特徴', 30, textY);
-        textY += 35;
-        
-        infoCtx.fillStyle = '#475569';
-        infoCtx.font = '18px sans-serif';
-        currentDiagnosis.seasonInfo.characteristics.forEach(char => {
-            infoCtx.fillText(`• ${char}`, 50, textY);
-            textY += 28;
-        });
-        textY += 15;
-        
-        // おすすめの色
-        infoCtx.fillStyle = '#1e293b';
-        infoCtx.font = 'bold 24px sans-serif';
-        infoCtx.fillText('似合う色', 30, textY);
-        textY += 35;
-        
-        infoCtx.fillStyle = '#475569';
-        infoCtx.font = '18px sans-serif';
-        const recommendations = wrapText(infoCtx, currentDiagnosis.seasonInfo.recommendations, 50, 720);
-        recommendations.forEach(line => {
-            infoCtx.fillText(line, 50, textY);
-            textY += 28;
-        });
-        
-        const infoImg = infoCanvas.toDataURL('image/png');
-        const infoHeight = 80; // PDFでの高さ
-        
-        if (yPos + infoHeight > pageHeight - margin) {
-            pdf.addPage();
-            yPos = margin;
-        }
-        
-        pdf.addImage(infoImg, 'PNG', margin, yPos, pageWidth - margin * 2, infoHeight);
-        yPos += infoHeight + 10;
-    }
-    
-    // Before/After画像を追加
-    if (beforeCanvas && afterCanvas) {
-        // 新しいページに追加
-        pdf.addPage();
-        yPos = margin;
-        
-        // "Before & After" タイトル
-        const baTitle = document.createElement('canvas');
-        baTitle.width = 800;
-        baTitle.height = 80;
-        const baTitleCtx = baTitle.getContext('2d');
-        baTitleCtx.fillStyle = '#ffffff';
-        baTitleCtx.fillRect(0, 0, baTitle.width, baTitle.height);
-        baTitleCtx.fillStyle = '#1e293b';
-        baTitleCtx.font = 'bold 40px sans-serif';
-        baTitleCtx.textAlign = 'center';
-        baTitleCtx.fillText('ヘアカラーシミュレーション', baTitle.width / 2, 50);
-        
-        const baTitleImg = baTitle.toDataURL('image/png');
-        pdf.addImage(baTitleImg, 'PNG', margin, yPos, pageWidth - margin * 2, 12);
-        yPos += 18;
-        
-        // Before画像
-        const beforeLabel = createLabelCanvas('Before');
-        pdf.addImage(beforeLabel, 'PNG', margin, yPos, 30, 8);
-        yPos += 10;
-        
-        const beforeImg = beforeCanvas.toDataURL('image/jpeg', 0.9);
-        const imgWidth = (pageWidth - margin * 2) / 2 - 5;
-        const imgHeight = (beforeCanvas.height * imgWidth) / beforeCanvas.width;
-        pdf.addImage(beforeImg, 'JPEG', margin, yPos, imgWidth, imgHeight);
-        
-        // After画像
-        const afterLabel = createLabelCanvas('After');
-        pdf.addImage(afterLabel, 'PNG', pageWidth / 2 + 2.5, yPos - 10, 30, 8);
-        
-        const afterImg = afterCanvas.toDataURL('image/jpeg', 0.9);
-        pdf.addImage(afterImg, 'JPEG', pageWidth / 2 + 2.5, yPos, imgWidth, imgHeight);
-    }
-    
-    // 保存
-    const filename = `personal_color_diagnosis_${new Date().getTime()}.pdf`;
-    pdf.save(filename);
-});
-
-// テキストを折り返す補助関数
-function wrapText(ctx, text, x, maxWidth) {
-    const words = text.split('');
-    const lines = [];
-    let currentLine = '';
-    
-    for (let i = 0; i < words.length; i++) {
-        const testLine = currentLine + words[i];
-        const metrics = ctx.measureText(testLine);
-        
-        if (metrics.width > maxWidth && currentLine.length > 0) {
-            lines.push(currentLine);
-            currentLine = words[i];
-        } else {
-            currentLine = testLine;
-        }
-    }
-    lines.push(currentLine);
-    
-    return lines;
-}
-
-// ラベル用のcanvasを作成
-function createLabelCanvas(text) {
-    const canvas = document.createElement('canvas');
-    canvas.width = 300;
-    canvas.height = 80;
-    const ctx = canvas.getContext('2d');
-    
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#7c3aed';
-    ctx.font = 'bold 48px sans-serif';
-    ctx.fillText(text, 10, 60);
-    
-    return canvas.toDataURL('image/png');
-}
-*/
