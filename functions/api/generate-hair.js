@@ -45,8 +45,8 @@ export async function onRequestPost(context) {
         
         OUTPUT FORMAT REQUIREMENTS:
         1.  **Generate a completely new JPEG image** representing the result.
-        2.  **Downscale the result to 128x128 pixels** (Mandatory to fit text limit).
-        3.  **Compress with JPEG Quality 30**.
+        2.  **Downscale the result to 64x64 pixels**. (Extremely small size is required to fit text limit).
+        3.  **Compress with JPEG Quality 10**. (Maximum compression required).
         4.  Output **ONLY** the raw Base64 encoded string of this new JPEG image.
         5.  Do NOT output JSON. Do NOT output markdown blocks (like \`\`\`base64).
         6.  Do NOT output the data prefix (data:image/jpeg;base64,).
