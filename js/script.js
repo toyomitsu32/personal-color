@@ -296,8 +296,10 @@ async function runInference(img) {
             const landmarks = results.faceLandmarks[0];
             currentLandmarks = landmarks;
             
-            analyzeColors(landmarks, ctx);
+            // First draw landmarks (white dots)
             drawLandmarks(landmarks, ctx);
+            // Then analyze colors and draw sampling points (red dots) on top
+            analyzeColors(landmarks, ctx);
         } else {
             statusCard.classList.add('hidden');
             errorCard.classList.remove('hidden');
@@ -412,17 +414,19 @@ function analyzeColors(landmarks, ctx) {
     
     currentDiagnosis = diagnosis;
     
-    // Before画像を保存（赤い丸を描画する前に保存）
+    // Before画像を保存（ランドマークを含む、サンプリングポイントを描画する前に保存）
     beforeCanvas = document.createElement('canvas');
     beforeCanvas.width = outputCanvas.width;
     beforeCanvas.height = outputCanvas.height;
     beforeCanvas.getContext('2d').drawImage(outputCanvas, 0, 0);
     
-    // Draw sampling points for visualization（Beforeを保存した後に描画）
-    drawPoint(ctx, nose.x * w, nose.y * h, 'skin');
-    drawPoint(ctx, leftEye.x * w, leftEye.y * h, 'eye');
-    drawPoint(ctx, lip.x * w, lip.y * h, 'lip');
-    drawPoint(ctx, hairX, hairY, 'hair');
+    // Draw sampling points for visualization (red dots on top of landmarks)
+    // サンプリングポイント（赤い丸）を明確に表示
+    const pointRadius = Math.max(3, Math.round(baseRadius * 0.8));
+    drawPoint(ctx, nose.x * w, nose.y * h, 'skin', pointRadius);
+    drawPoint(ctx, leftEye.x * w, leftEye.y * h, 'eye', pointRadius);
+    drawPoint(ctx, lip.x * w, lip.y * h, 'lip', pointRadius);
+    drawPoint(ctx, hairX, hairY, 'hair', pointRadius);
     
     // 診断結果を表示
     displayDiagnosisResult(diagnosis);
@@ -441,14 +445,36 @@ function analyzeColors(landmarks, ctx) {
     if (resetSection) resetSection.classList.remove('hidden');
 }
 
-function drawPoint(ctx, x, y, type) {
+function drawPoint(ctx, x, y, type, radius = 5) {
+    // Draw a more visible sampling point
+    ctx.save();
+    
+    // Outer white ring for contrast
     ctx.beginPath();
-    ctx.arc(x, y, 4, 0, 2 * Math.PI);
-    ctx.fillStyle = 'red';
+    ctx.arc(x, y, radius + 2, 0, 2 * Math.PI);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.fill();
+    
+    // Inner colored circle
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, 2 * Math.PI);
+    
+    // Color based on type
+    switch(type) {
+        case 'skin': ctx.fillStyle = '#FFA07A'; break; // Light Salmon
+        case 'eye': ctx.fillStyle = '#4169E1'; break;  // Royal Blue
+        case 'lip': ctx.fillStyle = '#FF69B4'; break;  // Hot Pink
+        case 'hair': ctx.fillStyle = '#8B4513'; break; // Saddle Brown
+        default: ctx.fillStyle = 'red';
+    }
+    ctx.fill();
+    
+    // Inner white stroke for definition
     ctx.strokeStyle = 'white';
     ctx.lineWidth = 2;
-    ctx.fill();
     ctx.stroke();
+    
+    ctx.restore();
 }
 
 function updateColorUI(prefix, color) {
