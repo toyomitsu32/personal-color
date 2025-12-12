@@ -459,7 +459,80 @@
                         </div>
                     </div>
                 </div>
-            </div>
+
+                <!-- カスタムカラーシミュレーション（新機能） -->
+                <div id="custom-color-card" class="bg-white rounded-2xl p-8 shadow-xl border border-slate-100 hidden">
+                    <div class="space-y-6">
+                        <div class="text-center">
+                            <h3 class="text-xl font-bold text-slate-900 flex items-center justify-center mb-2">
+                                <span class="material-icons text-pink-500 mr-2">palette</span>
+                                色味を指定して試す
+                            </h3>
+                            <p class="text-sm text-slate-500">
+                                気になる色味のボタンを押すと、あなたの写真でシミュレーションします。
+                            </p>
+                        </div>
+
+                        <!-- カテゴリボタン -->
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <button class="custom-tone-btn group relative overflow-hidden rounded-xl p-4 transition-all hover:shadow-md border border-orange-100 bg-orange-50 hover:bg-orange-100" data-tone="warm">
+                                <div class="text-center">
+                                    <span class="block text-2xl mb-1">🔥</span>
+                                    <span class="font-bold text-orange-800">WARM</span>
+                                    <span class="block text-xs text-orange-600">暖色・赤み</span>
+                                </div>
+                            </button>
+                            <button class="custom-tone-btn group relative overflow-hidden rounded-xl p-4 transition-all hover:shadow-md border border-slate-200 bg-slate-50 hover:bg-slate-100" data-tone="ash">
+                                <div class="text-center">
+                                    <span class="block text-2xl mb-1">🌫️</span>
+                                    <span class="font-bold text-slate-700">ASH</span>
+                                    <span class="block text-xs text-slate-500">透明感・グレー</span>
+                                </div>
+                            </button>
+                            <button class="custom-tone-btn group relative overflow-hidden rounded-xl p-4 transition-all hover:shadow-md border border-green-100 bg-green-50 hover:bg-green-100" data-tone="matte">
+                                <div class="text-center">
+                                    <span class="block text-2xl mb-1">🌿</span>
+                                    <span class="font-bold text-green-800">MATTE</span>
+                                    <span class="block text-xs text-green-600">赤み消し・緑</span>
+                                </div>
+                            </button>
+                            <button class="custom-tone-btn group relative overflow-hidden rounded-xl p-4 transition-all hover:shadow-md border border-yellow-100 bg-yellow-50 hover:bg-yellow-100" data-tone="gold">
+                                <div class="text-center">
+                                    <span class="block text-2xl mb-1">✨</span>
+                                    <span class="font-bold text-yellow-800">GOLD</span>
+                                    <span class="block text-xs text-yellow-600">明るさ・黄み</span>
+                                </div>
+                            </button>
+                        </div>
+
+                        <!-- 具体的な色選択（動的表示） -->
+                        <div id="tone-variations" class="hidden bg-slate-50 rounded-xl p-4 border border-slate-200">
+                            <p class="text-xs font-bold text-slate-500 mb-3 text-center">カラーを選択してください</p>
+                            <div id="variation-buttons" class="flex flex-wrap justify-center gap-2">
+                                <!-- JSで注入 -->
+                            </div>
+                        </div>
+
+                        <!-- カスタム生成結果 -->
+                        <div id="custom-result-container" class="hidden mt-6">
+                            <div class="relative rounded-xl overflow-hidden shadow-lg border border-slate-200 max-w-2xl mx-auto">
+                                <div id="custom-loading" class="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-10 hidden">
+                                    <div class="text-center">
+                                        <svg class="animate-spin h-8 w-8 text-purple-600 mx-auto mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        <span class="text-sm font-bold text-purple-800">AI生成中...</span>
+                                    </div>
+                                </div>
+                                <canvas id="custom-output-canvas" class="block w-full"></canvas>
+                                <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
+                                    <p id="custom-color-label" class="text-white font-bold text-lg"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
         </main>
         

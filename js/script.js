@@ -36,6 +36,34 @@ let isAnalyzing = false; // 解析中フラグ（重複実行防止）
 let faceLandmarker;
 let runningMode = "IMAGE";
 
+// カスタムカラーシミュレーション用のパレット
+const CUSTOM_COLOR_PALETTES = {
+    warm: [
+        { name: 'Warm Brown', color: '#8B4513', description: 'Warm brown with reddish tones' },
+        { name: 'Reddish Brown', color: '#A52A2A', description: 'Reddish brown' },
+        { name: 'Orange Brown', color: '#D2691E', description: 'Orange-based brown' },
+        { name: 'Pink Beige', color: '#E6C0C0', description: 'Pinkish beige' }
+    ],
+    ash: [
+        { name: 'Ash Brown', color: '#777777', description: 'Cool ash brown' },
+        { name: 'Ash Gray', color: '#808080', description: 'Grayish ash' },
+        { name: 'Greige', color: '#9E9E9E', description: 'Mix of grey and beige' },
+        { name: 'Silver Ash', color: '#C0C0C0', description: 'Silver-toned ash' }
+    ],
+    matte: [
+        { name: 'Matte Brown', color: '#556B2F', description: 'Green-based matte brown' },
+        { name: 'Olive Brown', color: '#808000', description: 'Olive toned brown' },
+        { name: 'Khaki Beige', color: '#BDB76B', description: 'Beige with khaki undertones' },
+        { name: 'Mint Ash', color: '#8FBC8F', description: 'Ash with mint tint' }
+    ],
+    gold: [
+        { name: 'Gold Brown', color: '#DAA520', description: 'Golden brown' },
+        { name: 'Yellow Beige', color: '#F0E68C', description: 'Yellow-based beige' },
+        { name: 'Honey Gold', color: '#FFD700', description: 'Bright honey gold' },
+        { name: 'Blonde', color: '#F5F5DC', description: 'Bright blonde' }
+    ]
+};
+
 // Initialize MediaPipe FaceLandmarker
 async function createFaceLandmarker() {
   try {
@@ -151,6 +179,8 @@ function resetToNewImage() {
     
     if (diagnosisCard) diagnosisCard.classList.add('hidden');
     if (hairSimCard) hairSimCard.classList.add('hidden');
+    const customColorCard = document.getElementById('custom-color-card');
+    if (customColorCard) customColorCard.classList.add('hidden');
     if (hairResultsCard) hairResultsCard.classList.add('hidden');
     if (beforeAfterToggle) beforeAfterToggle.classList.add('hidden');
     if (inlinePreview) inlinePreview.classList.add('hidden');
@@ -493,6 +523,13 @@ function initHairSimulation(season) {
     const hairSimCard = document.getElementById('hair-simulation-card');
     hairSimCard.classList.remove('hidden');
     
+    // カスタムカラーカードも表示
+    const customColorCard = document.getElementById('custom-color-card');
+    if (customColorCard) customColorCard.classList.remove('hidden');
+
+    // カスタムカラーシミュレーションを初期化
+    initCustomColorSimulation();
+    
     // 生成ボタンのイベント（一度だけ登録）
     const generateBtn = document.getElementById('generate-hair-colors-btn');
     const newGenerateBtn = generateBtn.cloneNode(true);
@@ -790,3 +827,111 @@ document.getElementById('show-after-btn').addEventListener('click', () => {
         document.getElementById('show-after-btn').className = 'flex-1 px-4 py-2 text-sm font-medium bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:shadow-md transition-all';
     }
 });
+
+// カスタムカラーシミュレーションの初期化
+function initCustomColorSimulation() {
+    const toneBtns = document.querySelectorAll('.custom-tone-btn');
+    const variationsContainer = document.getElementById('tone-variations');
+    const variationButtonsContainer = document.getElementById('variation-buttons');
+    
+    // カテゴリボタンのイベント
+    toneBtns.forEach(btn => {
+        // 重複登録防止のため、一旦クローンして置換
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+        
+        newBtn.addEventListener('click', () => {
+            // アクティブ状態の切り替え
+            document.querySelectorAll('.custom-tone-btn').forEach(b => {
+                b.classList.remove('ring-2', 'ring-purple-500', 'ring-offset-2');
+            });
+            newBtn.classList.add('ring-2', 'ring-purple-500', 'ring-offset-2');
+            
+            const tone = newBtn.getAttribute('data-tone');
+            showToneVariations(tone);
+        });
+    });
+    
+    function showToneVariations(tone) {
+        variationsContainer.classList.remove('hidden');
+        variationButtonsContainer.innerHTML = '';
+        
+        const colors = CUSTOM_COLOR_PALETTES[tone] || [];
+        
+        colors.forEach(colorInfo => {
+            const btn = document.createElement('button');
+            btn.className = 'flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-100 transition-all min-w-[80px]';
+            btn.innerHTML = `
+                <div class="w-10 h-10 rounded-full shadow-sm mb-1 border border-slate-200" style="background-color: ${colorInfo.color}"></div>
+                <span class="text-xs font-medium text-slate-700">${colorInfo.name}</span>
+            `;
+            
+            btn.addEventListener('click', () => {
+                generateCustomColor(colorInfo);
+            });
+            
+            variationButtonsContainer.appendChild(btn);
+        });
+    }
+}
+
+// カスタムカラー生成実行
+async function generateCustomColor(colorInfo) {
+    if (!originalCanvas || !currentLandmarks || !currentHairColor) return;
+    
+    const container = document.getElementById('custom-result-container');
+    const loading = document.getElementById('custom-loading');
+    const canvas = document.getElementById('custom-output-canvas');
+    const label = document.getElementById('custom-color-label');
+    
+    container.classList.remove('hidden');
+    loading.classList.remove('hidden');
+    
+    // スクロールして結果を表示
+    container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    
+    // パスワードを取得
+    const passwordInput = document.getElementById('ai-password-input');
+    const password = passwordInput ? passwordInput.value.trim() : '';
+    const useAI = (password && password.trim() !== '');
+    
+    try {
+        let resultCanvas;
+        
+        if (useAI) {
+            try {
+                // AI生成
+                const imageBase64 = await canvasToBase64(originalCanvas);
+                // カスタムカラーの場合は、colorInfo.color と colorInfo.description を使用
+                const imageUrl = await changeHairColorWithAI(imageBase64, colorInfo.color, colorInfo.description, password);
+                resultCanvas = await loadImageToCanvas(imageUrl);
+            } catch (aiError) {
+                console.error("Custom AI generation failed:", aiError);
+                alert(`AI生成エラー: ${aiError.message}\n\n簡易モードで生成します。`);
+                
+                // フォールバック
+                const maskCanvas = createPreciseHairMask(originalCanvas, currentLandmarks, currentHairColor);
+                resultCanvas = applyHairColor(originalCanvas, maskCanvas, colorInfo.color);
+            }
+        } else {
+            // Canvas生成
+            const maskCanvas = createPreciseHairMask(originalCanvas, currentLandmarks, currentHairColor);
+            resultCanvas = applyHairColor(originalCanvas, maskCanvas, colorInfo.color);
+        }
+        
+        // キャンバスに描画
+        canvas.width = resultCanvas.width;
+        canvas.height = resultCanvas.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(resultCanvas, 0, 0);
+        
+        // ラベル更新
+        label.innerText = `${colorInfo.name} ${useAI ? '(AI Generated)' : ''}`;
+        
+    } catch (error) {
+        console.error("Custom generation failed:", error);
+        alert("画像の生成に失敗しました。");
+    } finally {
+        loading.classList.add('hidden');
+    }
+}
