@@ -39,8 +39,8 @@ export async function onRequestPost(context) {
         const modelName = "gemini-2.5-flash-image"; 
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
 
-        // Simplified prompt for image generation/editing task
-        const systemPrompt = `Change the hair color of the person in this image to ${color} (${prompt}).`;
+        // Enhanced prompt to preserve hairstyle and facial features
+        const systemPrompt = `Change ONLY the hair color of the person in this image to ${color} (${prompt}). IMPORTANT: Keep the exact same hairstyle, hair length, hair texture, facial features, face shape, and background. Do not modify anything except the hair color. Preserve the original composition completely.`;
 
         // Gemini 2.5 Flash Image specific payload
         const payload = {
@@ -56,6 +56,7 @@ export async function onRequestPost(context) {
                 ]
             }],
             generationConfig: {
+                temperature: 0.1,  // Low temperature for more consistent/deterministic output
                 // This model supports image output directly via inline_data in response
                 // We do NOT set response_mime_type to 'application/json' or 'text/plain' 
                 // to allow the model to return native image objects.

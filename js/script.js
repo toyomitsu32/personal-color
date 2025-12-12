@@ -29,6 +29,7 @@ let beforeCanvas = null;
 let afterCanvas = null;
 let currentHairColor = null;
 let aiGeneratedImages = []; // AI生成された3パターンの画像を保存
+let allGeneratedImages = []; // すべての生成画像を蓄積（診断結果 + カスタム）
 let currentSelectedIndex = -1; // 現在選択されているパターン
 let inlineCanvas = null; // インライン表示用のCanvas
 let isAnalyzing = false; // 解析中フラグ（重複実行防止）
@@ -210,6 +211,7 @@ function resetToNewImage() {
     afterCanvas = null;
     currentHairColor = null;
     aiGeneratedImages = [];
+    allGeneratedImages = []; // 蓄積画像もリセット
     currentSelectedIndex = -1;
     inlineCanvas = null;
     
@@ -626,11 +628,16 @@ async function generateThreeHairColors(season, password = '') {
                     resultCanvas = applyHairColor(originalCanvas, maskCanvas, colorInfo.color);
                 }
                 
-                aiGeneratedImages.push({
+                const generatedItem = {
                     canvas: resultCanvas,
                     colorInfo: colorInfo,
-                    imageUrl: imageUrl
-                });
+                    imageUrl: imageUrl,
+                    timestamp: Date.now(),
+                    type: 'recommended'
+                };
+                
+                aiGeneratedImages.push(generatedItem);
+                allGeneratedImages.push(generatedItem); // 全体の履歴にも追加
                 
                 // 進捗バーを更新
                 progressBar.style.width = `${((i + 1) / 3) * 100}%`;
@@ -641,11 +648,16 @@ async function generateThreeHairColors(season, password = '') {
                 // パスワードエラーの場合は明確にユーザーに伝える
                 let displayError = error.message;
                 
-                aiGeneratedImages.push({
+                const errorItem = {
                     canvas: null,
                     colorInfo: colorInfo,
-                    error: displayError
-                });
+                    error: displayError,
+                    timestamp: Date.now(),
+                    type: 'recommended'
+                };
+                
+                aiGeneratedImages.push(errorItem);
+                allGeneratedImages.push(errorItem); // エラーも記録
             }
         }
         
@@ -942,10 +954,135 @@ async function generateCustomColor(colorInfo) {
         // ラベル更新
         label.innerText = `${colorInfo.name} ${useAI ? '(AI Generated)' : ''}`;
         
+        // 全体の履歴に追加
+        const customItem = {
+            canvas: resultCanvas,
+            colorInfo: colorInfo,
+            imageUrl: null,
+            timestamp: Date.now(),
+            type: 'custom'
+        };
+        allGeneratedImages.push(customItem);
+        
+        // ギャラリーを更新
+        updateImageGallery();
+        
     } catch (error) {
         console.error("Custom generation failed:", error);
         alert("画像の生成に失敗しました。");
     } finally {
         loading.classList.add('hidden');
     }
+}
+
+// 生成画像ギャラリーの更新・表示
+function updateImageGallery() {
+    // ギャラリーセクションがなければ作成
+    let gallerySection = document.getElementById('image-gallery-section');
+    
+    if (!gallerySection) {
+        // カスタムカラーカードの後に挿入
+        const customColorCard = document.getElementById('custom-color-card');
+        gallerySection = document.createElement('div');
+        gallerySection.id = 'image-gallery-section';
+        gallerySection.className = 'bg-white rounded-2xl p-8 shadow-xl border border-slate-100 hidden';
+        gallerySection.innerHTML = `
+            <div class="space-y-6">
+                <div class="text-center">
+                    <h3 class="text-xl font-bold text-slate-900 flex items-center justify-center mb-2">
+                        <span class="material-icons text-purple-500 mr-2">photo_library</span>
+                        生成した画像一覧
+                    </h3>
+                    <p class="text-sm text-slate-500">
+                        これまでに生成したすべての画像を確認できます。
+                    </p>
+                </div>
+                <div id="gallery-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    <!-- 動的に生成 -->
+                </div>
+            </div>
+        `;
+        customColorCard.parentNode.insertBefore(gallerySection, customColorCard.nextSibling);
+    }
+    
+    // 画像が1つ以上あれば表示
+    if (allGeneratedImages.length > 0) {
+        gallerySection.classList.remove('hidden');
+        
+        const galleryGrid = document.getElementById('gallery-grid');
+        galleryGrid.innerHTML = '';
+        
+        // 新しい順に表示
+        const sortedImages = [...allGeneratedImages].reverse();
+        
+        sortedImages.forEach((item, index) => {
+            if (!item.canvas) return; // エラーのものはスキップ
+            
+            const imageDataUrl = item.canvas.toDataURL('image/jpeg', 0.8);
+            const typeLabel = item.type === 'recommended' ? 'おすすめ' : 'カスタム';
+            
+            const imgCard = document.createElement('div');
+            imgCard.className = 'relative group cursor-pointer rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-all';
+            imgCard.innerHTML = `
+                <img src="${imageDataUrl}" alt="${item.colorInfo.name}" class="w-full h-auto">
+                <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-all flex flex-col justify-end p-3">
+                    <p class="text-white font-bold text-sm">${item.colorInfo.name}</p>
+                    <p class="text-white/80 text-xs">${typeLabel}</p>
+                </div>
+                <div class="absolute top-2 right-2 bg-white/90 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-all">
+                    <span class="material-icons text-purple-600 text-sm">zoom_in</span>
+                </div>
+            `;
+            
+            // クリックで拡大表示
+            imgCard.addEventListener('click', () => {
+                showImageModal(imageDataUrl, item.colorInfo.name, typeLabel);
+            });
+            
+            galleryGrid.appendChild(imgCard);
+        });
+    }
+}
+
+// 画像モーダル表示
+function showImageModal(imageUrl, title, subtitle) {
+    // モーダルがなければ作成
+    let modal = document.getElementById('image-modal');
+    
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'image-modal';
+        modal.className = 'fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 hidden';
+        modal.innerHTML = `
+            <div class="relative max-w-4xl w-full bg-white rounded-2xl overflow-hidden shadow-2xl">
+                <button id="close-modal-btn" class="absolute top-4 right-4 bg-white/90 hover:bg-white text-slate-700 p-2 rounded-full shadow-md transition-colors z-10">
+                    <span class="material-icons">close</span>
+                </button>
+                <div class="p-6">
+                    <h3 id="modal-title" class="text-xl font-bold text-slate-900 mb-2"></h3>
+                    <p id="modal-subtitle" class="text-sm text-slate-500 mb-4"></p>
+                    <img id="modal-image" src="" alt="" class="w-full h-auto rounded-lg">
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        // 閉じるボタン
+        document.getElementById('close-modal-btn').addEventListener('click', () => {
+            modal.classList.add('hidden');
+        });
+        
+        // 背景クリックで閉じる
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.add('hidden');
+            }
+        });
+    }
+    
+    // モーダルに画像を設定して表示
+    document.getElementById('modal-title').innerText = title;
+    document.getElementById('modal-subtitle').innerText = subtitle;
+    document.getElementById('modal-image').src = imageUrl;
+    modal.classList.remove('hidden');
 }
