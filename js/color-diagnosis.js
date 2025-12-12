@@ -53,7 +53,7 @@ function getSaturation(rgb) {
 }
 
 /**
- * 色のウォームトーン/クールトーンを判定
+ * 色のウォームトーン/クールトーンを判定（一般用）
  * @returns {string} 'warm' or 'cool'
  */
 function getTone(rgb) {
@@ -62,10 +62,31 @@ function getTone(rgb) {
 
     // 黄色・オレンジ・赤系 = ウォーム (0-60度, 300-360度)
     // 青・緑系 = クール (60-300度)
-    if ((hue >= 0 && hue <= 60) || (hue >= 300 && hue <= 360)) {
+    // ただし、赤(0付近)の中でも紫寄りはクール、オレンジ寄りはウォーム
+    if ((hue >= 350 || hue <= 50)) { // 赤〜オレンジ
         return 'warm';
+    } else if (hue > 50 && hue < 180) { // 黄色〜緑
+        return 'warm'; 
     } else {
         return 'cool';
+    }
+}
+
+/**
+ * 肌色のトーン判定（日本人向け調整）
+ */
+function getSkinTone(rgb) {
+    const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+    const h = hsl.h;
+    
+    // 日本人の肌：概ね Hue 10〜30度付近に分布
+    // 18度未満（赤み/ピンク寄り）→ Cool (Blue Base)
+    // 18度以上（黄み/オレンジ寄り）→ Warm (Yellow Base)
+    // ※照明条件によって変動するため、極端な値は補正が必要だが、簡易的に閾値を設定
+    if (h < 18 || h > 340) {
+        return 'cool';
+    } else {
+        return 'warm';
     }
 }
 
@@ -85,65 +106,126 @@ export function diagnosePersonalColor(colors) {
 
     const hairBrightness = getBrightness(hair);
     const skinBrightness = getBrightness(skin);
+    const eyeBrightness = getBrightness(eye); // 瞳の明るさを追加
     
     const hairSaturation = getSaturation(hair);
     const lipSaturation = getSaturation(lip);
+    const skinSaturation = getSaturation(skin);
 
-    // トーン判定（ウォーム or クール）
-    const skinTone = getTone(skin);
-    const lipTone = getTone(lip);
+    // トーン判定
+    const skinBase = getSkinTone(skin);
+    const lipBase = getTone(lip); // 唇は一般的なトーン判定でOK（青みピンク vs コーラル）
 
     // スコアリングシステム
     let scores = {
-        spring: 0,  // 春 (明るい・暖色)
-        summer: 0,  // 夏 (明るい・寒色)
-        autumn: 0,  // 秋 (暗い・暖色)
-        winter: 0   // 冬 (暗い・寒色)
+        spring: 0,
+        summer: 0,
+        autumn: 0,
+        winter: 0
     };
 
-    // 1. ベースカラー（肌・唇のトーン）の判定
-    const warmCount = [skinTone, lipTone].filter(t => t === 'warm').length;
-    const isWarmBase = warmCount >= 1; // 肌または唇がウォームなら暖色寄り
+    // --- 判定ロジックの改善 ---
 
-    // 2. 明度の判定（肌の明るさ）
-    const isBrightSkin = skinBrightness > 160; // 明るい肌 = Spring/Summer
+    // 1. ベースカラー（肌・唇）
+    // 肌がクールなら夏・冬、ウォームなら春・秋に加点
+    if (skinBase === 'warm') {
+        scores.spring += 3;
+        scores.autumn += 3;
+    } else {
+        scores.summer += 3;
+        scores.winter += 3;
+    }
 
-    // 3. 彩度の判定（髪・唇の鮮やかさ）
-    const averageSaturation = (hairSaturation + lipSaturation) / 2;
-    const isHighSaturation = averageSaturation > 30; // 鮮やか = Spring/Winter
+    // 唇の色補正
+    if (lipBase === 'warm') {
+        scores.spring += 1;
+        scores.autumn += 1;
+    } else {
+        scores.summer += 1;
+        scores.winter += 1;
+    }
 
-    // 4. コントラストの判定（髪と肌の明度差）
+    // 2. 明度（Brightness）
+    // 瞳が明るい → Spring / Summer
+    // 瞳が暗い → Autumn / Winter
+    if (eyeBrightness > 40) { // 瞳が茶色っぽく明るい
+        scores.spring += 2;
+        scores.summer += 2;
+    } else { // 瞳が黒く濃い
+        scores.autumn += 2;
+        scores.winter += 2;
+    }
+
+    // 肌の明るさ
+    // 明るい肌 → Spring / Summer / Winter（Winterは白肌も多い）
+    // 落ち着いた肌 → Autumn
+    if (skinBrightness > 140) { // 閾値を160から140へ緩和
+        scores.spring += 1;
+        scores.summer += 1;
+        scores.winter += 1;
+    } else {
+        scores.autumn += 2;
+    }
+
+    // 髪の明るさ（地毛前提だが、染めている場合もあるので参考程度に）
+    if (hairBrightness > 50) {
+        scores.spring += 1;
+        scores.summer += 1;
+    } else {
+        scores.autumn += 1;
+        scores.winter += 1;
+    }
+
+    // 3. 彩度（Saturation）と質感
+    // Spring: 高彩度・ツヤ (キラキラ)
+    // Summer: 低彩度・ソフト (マット〜セミマット)
+    // Autumn: 低〜中彩度・マット (リッチ)
+    // Winter: 高彩度・クリア (コントラスト)
+
+    // 肌の彩度が高い（血色が良い、または黄みが強い）
+    if (skinSaturation > 25) { 
+        scores.spring += 1; 
+        scores.autumn += 1;
+    } else {
+        scores.summer += 1;
+        scores.winter += 1;
+    }
+
+    // 唇や髪の彩度が高い
+    const avgSaturation = (lipSaturation + hairSaturation) / 2;
+    if (avgSaturation > 25) {
+        scores.spring += 2;
+        scores.winter += 2;
+    } else {
+        scores.summer += 2;
+        scores.autumn += 2;
+    }
+
+    // 4. コントラスト（髪と肌の明度差）
     const contrast = Math.abs(hairBrightness - skinBrightness);
-    const isHighContrast = contrast > 80; // コントラスト高 = Winter/Autumn
+    if (contrast > 100) { // コントラストが強い
+        scores.winter += 3; // Winterの最大特徴
+        scores.spring += 1;
+    } else { // コントラストが弱い（馴染んでいる）
+        scores.summer += 2;
+        scores.autumn += 2;
+    }
 
-    // スコアリング
-    // Spring（イエベ春）: 明るく、暖色で、鮮やか
-    if (isWarmBase) scores.spring += 2;
-    if (isBrightSkin) scores.spring += 2;
-    if (isHighSaturation) scores.spring += 1;
-    if (!isHighContrast) scores.spring += 1;
-
-    // Summer（ブルベ夏）: 明るく、寒色で、柔らかい
-    if (!isWarmBase) scores.summer += 2;
-    if (isBrightSkin) scores.summer += 2;
-    if (!isHighSaturation) scores.summer += 1;
-    if (!isHighContrast) scores.summer += 1;
-
-    // Autumn（イエベ秋）: 暗く、暖色で、深い
-    if (isWarmBase) scores.autumn += 2;
-    if (!isBrightSkin) scores.autumn += 2;
-    if (!isHighSaturation) scores.autumn += 1;
-    if (isHighContrast) scores.autumn += 1;
-
-    // Winter（ブルベ冬）: 暗く、寒色で、鮮やか
-    if (!isWarmBase) scores.winter += 2;
-    if (!isBrightSkin) scores.winter += 2;
-    if (isHighSaturation) scores.winter += 1;
-    if (isHighContrast) scores.winter += 1;
+    // --- 最終調整 ---
+    // 日本人は黒髪・黒目が多いのでAutumn/Winterになりやすいのを補正
+    // Spring要素（明るさ・鮮やかさ）がある場合はSpringを優遇
+    if (skinBase === 'warm' && eyeBrightness > 30) {
+        scores.spring += 1;
+    }
+    
+    // Summer要素（ブルベ・ソフト）の救済
+    if (skinBase === 'cool' && contrast < 100) {
+        scores.summer += 1;
+    }
 
     // 最高スコアのシーズンを判定
     const season = Object.keys(scores).reduce((a, b) => 
-        scores[a] > scores[b] ? a : b
+        scores[a] >= scores[b] ? a : b
     );
 
     // シーズンの詳細情報
@@ -154,12 +236,13 @@ export function diagnosePersonalColor(colors) {
         scores,
         seasonInfo,
         analysis: {
-            skinTone: isWarmBase ? 'warm' : 'cool',
-            brightness: isBrightSkin ? 'bright' : 'deep',
-            saturation: isHighSaturation ? 'vivid' : 'soft',
-            contrast: isHighContrast ? 'high' : 'low',
+            skinTone: skinBase,
+            brightness: skinBrightness > 140 ? 'bright' : 'deep',
+            saturation: avgSaturation > 25 ? 'vivid' : 'soft',
+            contrast: contrast > 100 ? 'high' : 'low',
             skinBrightness,
             hairBrightness,
+            eyeBrightness,
             contrast
         }
     };
