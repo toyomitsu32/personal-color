@@ -157,6 +157,12 @@ function resetToNewImage() {
     // 完全リセット
     fileInput.value = '';
     
+    // 生成画像ギャラリーをリフレッシュ
+    const gallerySection = document.getElementById('image-gallery-section');
+    if (gallerySection) {
+        gallerySection.remove(); // DOMから削除
+    }
+    
     // Reset Layout
     const uploadWrapper = document.getElementById('upload-wrapper');
     const analysisSection = document.getElementById('analysis-section');
@@ -214,6 +220,8 @@ function resetToNewImage() {
     allGeneratedImages = []; // 蓄積画像もリセット
     currentSelectedIndex = -1;
     inlineCanvas = null;
+    
+    console.log('Reset complete: All data cleared for new image analysis');
     
     // スムーズにスクロール
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -414,19 +422,26 @@ function analyzeColors(landmarks, ctx) {
     
     currentDiagnosis = diagnosis;
     
-    // Before画像を保存（ランドマークを含む、サンプリングポイントを描画する前に保存）
+    // Before画像を保存（サンプリングポイントを描画する前に保存）
     beforeCanvas = document.createElement('canvas');
     beforeCanvas.width = outputCanvas.width;
     beforeCanvas.height = outputCanvas.height;
     beforeCanvas.getContext('2d').drawImage(outputCanvas, 0, 0);
     
-    // Draw sampling points for visualization (red dots on top of landmarks)
-    // サンプリングポイント（赤い丸）を明確に表示
-    const pointRadius = Math.max(3, Math.round(baseRadius * 0.8));
+    // Draw sampling points for visualization
+    // サンプリングポイント（色分けされた丸）を明確に表示
+    const pointRadius = Math.max(6, Math.round(baseRadius * 1.0));
     drawPoint(ctx, nose.x * w, nose.y * h, 'skin', pointRadius);
     drawPoint(ctx, leftEye.x * w, leftEye.y * h, 'eye', pointRadius);
     drawPoint(ctx, lip.x * w, lip.y * h, 'lip', pointRadius);
     drawPoint(ctx, hairX, hairY, 'hair', pointRadius);
+    
+    console.log('Sampling points drawn at:', {
+        nose: { x: nose.x * w, y: nose.y * h, color: skinColor },
+        eye: { x: leftEye.x * w, y: leftEye.y * h, color: eyeColor },
+        lip: { x: lip.x * w, y: lip.y * h, color: lipColor },
+        hair: { x: hairX, y: hairY, color: hairColor }
+    });
     
     // 診断結果を表示
     displayDiagnosisResult(diagnosis);
@@ -491,15 +506,16 @@ function rgbToHex(r, g, b) {
 }
 
 function drawLandmarks(landmarks, ctx) {
-    // Optional: Draw face mesh for visual feedback
-    // Just drawing a few key points to keep it clean
+    // Draw face mesh for visual feedback (subtle white dots)
     const w = outputCanvas.width;
     const h = outputCanvas.height;
 
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-    for (const point of landmarks) {
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+    // Draw subset of landmarks to reduce clutter (every 5th point)
+    for (let i = 0; i < landmarks.length; i += 5) {
+        const point = landmarks[i];
         ctx.beginPath();
-        ctx.arc(point.x * w, point.y * h, 1, 0, 2 * Math.PI);
+        ctx.arc(point.x * w, point.y * h, 1.5, 0, 2 * Math.PI);
         ctx.fill();
     }
 }
