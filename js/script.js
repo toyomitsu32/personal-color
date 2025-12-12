@@ -129,6 +129,11 @@ fileInput.addEventListener('change', (e) => {
 // ボタンのイベント
 document.getElementById('close-preview-btn').addEventListener('click', closePreview);
 document.getElementById('new-image-btn').addEventListener('click', resetToNewImage);
+// 下部リセットボタンのイベント
+const resetBtnBottom = document.getElementById('reset-btn-bottom');
+if (resetBtnBottom) {
+    resetBtnBottom.addEventListener('click', resetToNewImage);
+}
 
 // プレビューを閉じる（画像は残す）
 function closePreview() {
@@ -176,6 +181,7 @@ function resetToNewImage() {
     const beforeAfterToggle = document.getElementById('before-after-toggle');
     const inlinePreview = document.getElementById('inline-preview-container');
     const floatingActions = document.getElementById('floating-actions-container');
+    const resetSection = document.getElementById('reset-section');
     
     if (diagnosisCard) diagnosisCard.classList.add('hidden');
     if (hairSimCard) hairSimCard.classList.add('hidden');
@@ -185,6 +191,7 @@ function resetToNewImage() {
     if (beforeAfterToggle) beforeAfterToggle.classList.add('hidden');
     if (inlinePreview) inlinePreview.classList.add('hidden');
     if (floatingActions) floatingActions.classList.add('hidden');
+    if (resetSection) resetSection.classList.add('hidden');
     
     // 生成ボタンを再表示
     const generateBtn = document.getElementById('generate-hair-colors-btn');
@@ -423,6 +430,13 @@ function analyzeColors(landmarks, ctx) {
     
     // 表示セクションを有効化
     document.getElementById('simulation-section').classList.remove('hidden');
+    
+    // 別の画像で診断するボタンを表示
+    const floatingActions = document.getElementById('floating-actions-container');
+    if (floatingActions) floatingActions.classList.remove('hidden');
+    
+    const resetSection = document.getElementById('reset-section');
+    if (resetSection) resetSection.classList.remove('hidden');
 }
 
 function drawPoint(ctx, x, y, type) {
