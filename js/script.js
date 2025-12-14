@@ -634,6 +634,18 @@ function displayDiagnosisResult(diagnosis) {
         
         // エクスポートセクションを表示（PDF機能は一時無効化）
         // document.getElementById('export-section').classList.remove('hidden');
+        
+        // オリジナル画像での試着ボタンイベント設定
+        const originalFashionBtn = document.getElementById('try-fashion-original-btn');
+        if (originalFashionBtn) {
+            // クローンしてリスナー重複防止
+            const newBtn = originalFashionBtn.cloneNode(true);
+            originalFashionBtn.parentNode.replaceChild(newBtn, originalFashionBtn);
+            
+            newBtn.addEventListener('click', () => {
+                selectForFashion(null, 'original');
+            });
+        }
     }
 }
 
@@ -897,6 +909,18 @@ function displayResultOnMainCanvas(index) {
     
     // カラー名を表示
     document.getElementById('current-color-name').innerText = result.colorInfo.name;
+    
+    // インライン試着ボタンのイベント設定
+    const inlineFashionBtn = document.getElementById('try-fashion-inline-btn');
+    if (inlineFashionBtn) {
+        // クローンしてリスナー重複防止
+        const newBtn = inlineFashionBtn.cloneNode(true);
+        inlineFashionBtn.parentNode.replaceChild(newBtn, inlineFashionBtn);
+        
+        newBtn.addEventListener('click', () => {
+            selectForFashion(currentSelectedIndex, 'inline');
+        });
+    }
     
     // Afterボタンを選択状態に
     document.getElementById('show-before-btn').className = 'flex-1 px-4 py-2 text-sm font-medium bg-white text-slate-700 rounded-lg border-2 border-slate-300 hover:bg-slate-50 transition-all';
@@ -1255,29 +1279,65 @@ function showImageModal(imageUrl, title, subtitle) {
 // ファッションシミュレーション機能
 async function selectForFashion(index, type) {
     let item;
-    if (type === 'recommended') {
+    let canvas;
+    let hairInfo;
+
+    if (type === 'original') {
+        // オリジナル画像を使用
+        if (!originalCanvas) {
+            alert("画像が読み込まれていません。");
+            return;
+        }
+        canvas = originalCanvas;
+        hairInfo = { name: '現在の髪色', color: '#333333' }; // デフォルト値
+        
+        // 解析済みの髪色があればそれを使う
+        if (currentHairColor) {
+            hairInfo.color = `rgb(${currentHairColor.r}, ${currentHairColor.g}, ${currentHairColor.b})`;
+        }
+    } else if (type === 'recommended') {
         item = aiGeneratedImages[index];
+        canvas = item?.canvas;
+        hairInfo = item?.colorInfo;
     } else if (type === 'all') {
         item = allGeneratedImages[index];
+        canvas = item?.canvas;
+        hairInfo = item?.colorInfo;
+    } else if (type === 'inline') {
+        // インラインプレビューの現在の状態を使用
+        // before/afterのどちらが表示されているか確認する必要があるが、
+        // 簡易的に afterCanvas (シミュレーション結果) があればそれを、なければ originalCanvas を使う
+        // しかし、インラインプレビューは aiGeneratedImages の結果を表示しているはず。
+        
+        // currentSelectedIndex を使用
+        if (currentSelectedIndex >= 0 && aiGeneratedImages[currentSelectedIndex]) {
+            item = aiGeneratedImages[currentSelectedIndex];
+            canvas = item.canvas;
+            hairInfo = item.colorInfo;
+        } else {
+            // フォールバック
+            canvas = afterCanvas || originalCanvas;
+            hairInfo = { name: document.getElementById('current-color-name').innerText || '現在の髪色' };
+        }
     }
     
-    if (!item || !item.canvas) return;
+    if (!canvas) return;
     
     // ベース画像を保存
-    const base64 = await canvasToBase64(item.canvas);
+    const base64 = await canvasToBase64(canvas);
     selectedFashionBaseImage = base64;
-    selectedFashionHairInfo = item.colorInfo;
+    selectedFashionHairInfo = hairInfo || { name: '選択した髪色' };
     
     // UI更新
     const baseImageEl = document.getElementById('fashion-base-image');
-    baseImageEl.src = item.canvas.toDataURL('image/jpeg', 0.8);
+    baseImageEl.src = canvas.toDataURL('image/jpeg', 0.8);
     baseImageEl.classList.remove('hidden');
     document.getElementById('fashion-output-canvas').classList.add('hidden');
     document.getElementById('fashion-placeholder').classList.add('hidden');
     document.getElementById('fashion-label-container').classList.remove('hidden');
     
     const styleLabel = document.getElementById('fashion-current-style');
-    styleLabel.innerText = `現在のスタイル: ${item.colorInfo.name}`;
+    styleLabel.innerText = `現在のスタイル: ${selectedFashionHairInfo.name}`;
     
     // おすすめカラーを更新
     updateFashionRecommendations();
@@ -1285,7 +1345,11 @@ async function selectForFashion(index, type) {
     // セクションを表示してスクロール
     const fashionSection = document.getElementById('fashion-simulation-section');
     fashionSection.classList.remove('hidden');
-    fashionSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    
+    // スクロール処理（少し遅延させてUIレンダリングを待つ）
+    setTimeout(() => {
+        fashionSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
     
     // Customボタンを有効化
     const customBtn = document.getElementById('fashion-generate-btn');
