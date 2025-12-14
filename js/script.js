@@ -147,6 +147,15 @@ fileInput.addEventListener('change', (e) => {
 // ボタンのイベント
 document.getElementById('close-preview-btn').addEventListener('click', closePreview);
 document.getElementById('new-image-btn').addEventListener('click', resetToNewImage);
+
+// 2024-12-14 Added: Fashion Use Original Button
+const fashionUseOriginalBtn = document.getElementById('fashion-use-original-btn');
+if (fashionUseOriginalBtn) {
+    fashionUseOriginalBtn.addEventListener('click', () => {
+        selectForFashion(null, 'original');
+    });
+}
+
 // 下部リセットボタンのイベント
 const resetBtnBottom = document.getElementById('reset-btn-bottom');
 if (resetBtnBottom) {
@@ -1306,19 +1315,32 @@ async function selectForFashion(index, type) {
         hairInfo = item?.colorInfo;
     } else if (type === 'inline') {
         // インラインプレビューの現在の状態を使用
-        // before/afterのどちらが表示されているか確認する必要があるが、
-        // 簡易的に afterCanvas (シミュレーション結果) があればそれを、なければ originalCanvas を使う
-        // しかし、インラインプレビューは aiGeneratedImages の結果を表示しているはず。
+        // beforeCanvasが表示されている場合は、originalを使用する
+        const showBeforeBtn = document.getElementById('show-before-btn');
+        const isShowingBefore = showBeforeBtn && showBeforeBtn.classList.contains('bg-gradient-to-r'); // Beforeがアクティブなときのスタイル判定
         
-        // currentSelectedIndex を使用
-        if (currentSelectedIndex >= 0 && aiGeneratedImages[currentSelectedIndex]) {
-            item = aiGeneratedImages[currentSelectedIndex];
-            canvas = item.canvas;
-            hairInfo = item.colorInfo;
+        if (isShowingBefore) {
+            // Before表示中 = オリジナル画像
+             if (!originalCanvas) {
+                alert("画像が読み込まれていません。");
+                return;
+            }
+            canvas = originalCanvas;
+            hairInfo = { name: '現在の髪色', color: '#333333' }; // デフォルト
+            if (currentHairColor) {
+                hairInfo.color = `rgb(${currentHairColor.r}, ${currentHairColor.g}, ${currentHairColor.b})`;
+            }
         } else {
-            // フォールバック
-            canvas = afterCanvas || originalCanvas;
-            hairInfo = { name: document.getElementById('current-color-name').innerText || '現在の髪色' };
+            // After表示中 = シミュレーション結果
+            if (currentSelectedIndex >= 0 && aiGeneratedImages[currentSelectedIndex]) {
+                item = aiGeneratedImages[currentSelectedIndex];
+                canvas = item.canvas;
+                hairInfo = item.colorInfo;
+            } else {
+                // フォールバック（念のため）
+                canvas = afterCanvas || originalCanvas;
+                hairInfo = { name: document.getElementById('current-color-name').innerText || '現在の髪色' };
+            }
         }
     }
     
