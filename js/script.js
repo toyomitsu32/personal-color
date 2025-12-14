@@ -808,7 +808,7 @@ function displayHairColorResults() {
             resultCard.innerHTML = `
                 <div class="flex items-center space-x-3">
                     <div class="w-12 h-12 rounded-full flex items-center justify-center" style="background-color: ${result.colorInfo.color}">
-                        <span class="material-icons text-white">error</span>
+                        <span class="material-symbols-rounded text-white">error</span>
                     </div>
                     <div class="flex-1">
                         <h4 class="font-semibold text-slate-800">${result.colorInfo.name}</h4>
@@ -833,11 +833,11 @@ function displayHairColorResults() {
                     </div>
                     <div class="flex space-x-2">
                         <button class="view-result-btn text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center" data-index="${index}">
-                            <span class="material-icons text-sm mr-1">visibility</span>
+                            <span class="material-symbols-rounded text-sm mr-1">visibility</span>
                             表示
                         </button>
                         <button class="select-fashion-btn text-xs bg-indigo-50 text-indigo-600 hover:bg-indigo-100 px-2 py-1 rounded font-medium flex items-center" data-index="${index}" data-type="recommended">
-                            <span class="material-icons text-sm mr-1">checkroom</span>
+                            <span class="material-symbols-rounded text-sm mr-1">checkroom</span>
                             試着
                         </button>
                     </div>
@@ -1137,7 +1137,7 @@ function updateImageGallery() {
             <div class="space-y-6">
                 <div class="text-center">
                     <h3 class="text-xl font-bold text-slate-900 flex items-center justify-center mb-2">
-                        <span class="material-icons text-purple-500 mr-2">photo_library</span>
+                        <span class="material-symbols-rounded text-purple-500 mr-2">photo_library</span>
                         生成した画像一覧
                     </h3>
                     <p class="text-sm text-slate-500">
@@ -1178,7 +1178,7 @@ function updateImageGallery() {
                     <p class="text-white/80 text-xs">${typeLabel}</p>
                 </div>
                 <div class="absolute top-2 right-2 bg-white/90 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-all">
-                    <span class="material-icons text-purple-600 text-sm">zoom_in</span>
+                    <span class="material-symbols-rounded text-purple-600 text-sm">zoom_in</span>
                 </div>
             `;
             
@@ -1197,7 +1197,7 @@ function updateImageGallery() {
             actionDiv.className = 'absolute top-2 left-2 z-10';
             actionDiv.innerHTML = `
                 <button class="select-gallery-fashion-btn bg-white/90 hover:bg-white text-indigo-600 p-1.5 rounded-full shadow-md transition-all flex items-center justify-center" title="この髪色で服を試着">
-                    <span class="material-icons text-sm">checkroom</span>
+                    <span class="material-symbols-rounded text-sm">checkroom</span>
                 </button>
             `;
             
@@ -1213,7 +1213,7 @@ function updateImageGallery() {
                     <p class="text-white/80 text-xs">${typeLabel}</p>
                 </div>
                 <div class="absolute top-2 right-2 bg-white/90 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-all">
-                    <span class="material-icons text-purple-600 text-sm">zoom_in</span>
+                    <span class="material-symbols-rounded text-purple-600 text-sm">zoom_in</span>
                 </div>
             `;
             imgWrapper.appendChild(actionDiv);
@@ -1246,7 +1246,7 @@ function showImageModal(imageUrl, title, subtitle) {
         modal.innerHTML = `
             <div class="relative max-w-4xl w-full bg-white rounded-2xl overflow-hidden shadow-2xl">
                 <button id="close-modal-btn" class="absolute top-4 right-4 bg-white/90 hover:bg-white text-slate-700 p-2 rounded-full shadow-md transition-colors z-10">
-                    <span class="material-icons">close</span>
+                    <span class="material-symbols-rounded">close</span>
                 </button>
                 <div class="p-6">
                     <h3 id="modal-title" class="text-xl font-bold text-slate-900 mb-2"></h3>
