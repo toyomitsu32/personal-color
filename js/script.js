@@ -1,5 +1,6 @@
 import {
   FaceLandmarker,
+  PoseLandmarker,
   FilesetResolver
 } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/+esm";
 
@@ -35,6 +36,7 @@ let inlineCanvas = null; // インライン表示用のCanvas
 let isAnalyzing = false; // 解析中フラグ（重複実行防止）
 
 let faceLandmarker;
+let poseLandmarker;
 let runningMode = "IMAGE";
 
 // カスタムカラーシミュレーション用のパレット
@@ -80,15 +82,26 @@ async function createFaceLandmarker() {
       outputFaceBlendshapes: false,
       runningMode: runningMode,
       numFaces: 1,
-      minFaceDetectionConfidence: 0.6, // 信頼度閾値を上げて誤検出を減らす
+      minFaceDetectionConfidence: 0.6,
       minFacePresenceConfidence: 0.6,
       minTrackingConfidence: 0.6
     });
+
+    // Initialize PoseLandmarker
+    poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+      baseOptions: {
+        modelAssetPath: `https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task`,
+        delegate: "GPU"
+      },
+      runningMode: runningMode,
+      numPoses: 1
+    });
+
     // Image Segmenterも初期化
     await initImageSegmenter(FilesetResolver);
     
     loadingOverlay.classList.add('hidden');
-    console.log("FaceLandmarker initialized");
+    console.log("FaceLandmarker and PoseLandmarker initialized");
   } catch (error) {
     console.error(error);
     loadingText.innerText = "モデルの読み込みに失敗しました。ページをリロードしてください。";
@@ -230,7 +243,7 @@ function resetToNewImage() {
 
 
 function processFile(file) {
-    if (!faceLandmarker) {
+    if (!faceLandmarker || !poseLandmarker) {
         alert("モデルがまだ読み込まれていません。少々お待ちください。");
         return;
     }
@@ -294,6 +307,18 @@ async function runInference(img) {
     try {
         // Detect faces
         const results = faceLandmarker.detect(outputCanvas);
+        
+        // Detect pose (optional usage for now)
+        try {
+            const poseResults = poseLandmarker.detect(outputCanvas);
+            console.log("Pose detection results:", poseResults);
+            if (poseResults.landmarks && poseResults.landmarks.length > 0) {
+                // 将来的に骨格診断に使用可能
+                drawPoseLandmarks(poseResults.landmarks[0], ctx);
+            }
+        } catch (poseError) {
+            console.warn("Pose detection failed:", poseError);
+        }
         
         // Draw landmarks and analyze colors
         if (results.faceLandmarks.length > 0) {
@@ -516,6 +541,34 @@ function drawLandmarks(landmarks, ctx) {
         const point = landmarks[i];
         ctx.beginPath();
         ctx.arc(point.x * w, point.y * h, 1.5, 0, 2 * Math.PI);
+        ctx.fill();
+    }
+}
+
+function drawPoseLandmarks(landmarks, ctx) {
+    const w = outputCanvas.width;
+    const h = outputCanvas.height;
+    
+    ctx.fillStyle = 'rgba(0, 255, 0, 0.5)';
+    ctx.strokeStyle = 'rgba(0, 255, 0, 0.3)';
+    ctx.lineWidth = 2;
+
+    // Draw connections (simplified)
+    const connections = PoseLandmarker.POSE_CONNECTIONS;
+    if (connections) {
+        for (const conn of connections) {
+            const start = landmarks[conn.start];
+            const end = landmarks[conn.end];
+            ctx.beginPath();
+            ctx.moveTo(start.x * w, start.y * h);
+            ctx.lineTo(end.x * w, end.y * h);
+            ctx.stroke();
+        }
+    }
+
+    for (const point of landmarks) {
+        ctx.beginPath();
+        ctx.arc(point.x * w, point.y * h, 3, 0, 2 * Math.PI);
         ctx.fill();
     }
 }
