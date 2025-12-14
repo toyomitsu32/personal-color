@@ -322,7 +322,7 @@ async function runInference(img) {
             console.log("Pose detection results:", poseResults);
             if (poseResults.landmarks && poseResults.landmarks.length > 0) {
                 // 将来的に骨格診断に使用可能
-                drawPoseLandmarks(poseResults.landmarks[0], ctx);
+                // drawPoseLandmarks(poseResults.landmarks[0], ctx);
             }
         } catch (poseError) {
             console.warn("Pose detection failed:", poseError);
