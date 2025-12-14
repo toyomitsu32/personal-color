@@ -124,6 +124,72 @@
         <!-- Main Content -->
         <main class="max-w-6xl mx-auto space-y-8" id="main-content-area">
             
+            <!-- Photo Guidelines Section -->
+            <div class="max-w-3xl mx-auto">
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-gradient-to-r from-purple-50 to-pink-50 px-6 py-4 border-b border-purple-100 flex justify-between items-center cursor-pointer" onclick="document.getElementById('guidelines-content').classList.toggle('hidden'); document.getElementById('guidelines-arrow').classList.toggle('rotate-180');">
+                        <h3 class="font-bold text-slate-800 flex items-center text-base md:text-lg">
+                            <span class="material-icons text-amber-500 mr-2">lightbulb</span>
+                            <span>正確に診断するための写真選びのコツ</span>
+                        </h3>
+                        <span id="guidelines-arrow" class="material-icons text-slate-400 transition-transform duration-300">expand_more</span>
+                    </div>
+                    
+                    <div id="guidelines-content" class="p-6">
+                        <p class="text-sm text-slate-600 mb-6 leading-relaxed bg-blue-50 p-3 rounded-lg border border-blue-100">
+                            <span class="font-bold text-blue-800">💡 光の加減で診断結果が大きく変わります！</span><br>
+                            AIは写真の色をそのまま読み取ります。オレンジ色の照明下では「イエベ」、青白い照明下では「ブルベ」と誤診されやすくなります。
+                        </p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- OK Cases -->
+                            <div class="space-y-3 bg-green-50/50 p-4 rounded-xl border border-green-100">
+                                <h4 class="font-bold text-green-700 flex items-center text-sm mb-3">
+                                    <span class="material-icons text-sm mr-1">check_circle</span>
+                                    おすすめの画像 (OK)
+                                </h4>
+                                <ul class="space-y-3 text-sm text-slate-700">
+                                    <li class="flex items-start">
+                                        <span class="material-icons text-green-500 text-base mt-0.5 mr-2">wb_sunny</span>
+                                        <span><strong>自然光（昼間の窓際）</strong>で撮影<br><span class="text-xs text-slate-500">※レースのカーテン越しがベスト</span></span>
+                                    </li>
+                                    <li class="flex items-start">
+                                        <span class="material-icons text-green-500 text-base mt-0.5 mr-2">face_retouching_off</span>
+                                        <span><strong>ノーメイク</strong> または薄化粧<br><span class="text-xs text-slate-500">※リップやチークの色が影響します</span></span>
+                                    </li>
+                                    <li class="flex items-start">
+                                        <span class="material-icons text-green-500 text-base mt-0.5 mr-2">crop_portrait</span>
+                                        <span>顔に影がかかっていない<br><span class="text-xs text-slate-500">※正面から光が当たっている状態</span></span>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <!-- NG Cases -->
+                            <div class="space-y-3 bg-red-50/50 p-4 rounded-xl border border-red-100">
+                                <h4 class="font-bold text-red-700 flex items-center text-sm mb-3">
+                                    <span class="material-icons text-sm mr-1">cancel</span>
+                                    避けたほうがよい画像 (NG)
+                                </h4>
+                                <ul class="space-y-3 text-sm text-slate-700">
+                                    <li class="flex items-start">
+                                        <span class="material-icons text-red-400 text-base mt-0.5 mr-2">tungsten</span>
+                                        <span><strong>オレンジ・黄色っぽい照明</strong><br><span class="text-xs text-slate-500">※全体が黄色く判定されます</span></span>
+                                    </li>
+                                    <li class="flex items-start">
+                                        <span class="material-icons text-red-400 text-base mt-0.5 mr-2">nights_stay</span>
+                                        <span>暗い部屋・逆光<br><span class="text-xs text-slate-500">※色が正しく検出できません</span></span>
+                                    </li>
+                                    <li class="flex items-start">
+                                        <span class="material-icons text-red-400 text-base mt-0.5 mr-2">auto_fix_normal</span>
+                                        <span><strong>過度な加工アプリ</strong>の使用<br><span class="text-xs text-slate-500">※肌色が補正されすぎている場合</span></span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Upload Container Wrapper (Centered by default) -->
             <div id="upload-wrapper" class="flex flex-col items-center justify-center w-full transition-all duration-500">
                 <!-- Upload Area -->
