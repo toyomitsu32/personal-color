@@ -1166,7 +1166,8 @@ function updateImageGallery() {
             if (!item.canvas) return; // エラーのものはスキップ
             
             const imageDataUrl = item.canvas.toDataURL('image/jpeg', 0.8);
-            const typeLabel = item.type === 'recommended' ? 'おすすめ' : 'カスタム';
+            const typeLabel = item.type === 'recommended' ? 'おすすめ' : 
+                             item.type === 'custom' ? 'カスタム' : 'ファッション';
             
             const imgCard = document.createElement('div');
             imgCard.className = 'relative group cursor-pointer rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-all';
@@ -1458,6 +1459,31 @@ async function generateFashion(colorName) {
         // ラベル更新
         const styleLabel = document.getElementById('fashion-current-style');
         styleLabel.innerText = `Coordinate: ${selectedFashionHairInfo.name} Hair × ${colorName} Outfit`;
+        
+        // 履歴に追加
+        // 色のHEXコードを検索（おすすめパレットから）
+        let hexColor = '#cccccc'; // デフォルト
+        if (currentDiagnosis) {
+            const season = currentDiagnosis.season;
+            const recColors = getRecommendedFashionColors(season);
+            const found = recColors.find(c => c.name === colorName);
+            if (found) hexColor = found.hex;
+        }
+        
+        const fashionItem = {
+            canvas: resultCanvas,
+            colorInfo: { 
+                name: `Fashion: ${colorName}`, 
+                color: hexColor,
+                description: `Hair: ${selectedFashionHairInfo.name}, Fashion: ${colorName}`
+            },
+            imageUrl: imageUrl,
+            timestamp: Date.now(),
+            type: 'fashion'
+        };
+        
+        allGeneratedImages.push(fashionItem);
+        updateImageGallery();
         
     } catch (error) {
         console.error("Fashion generation failed:", error);
