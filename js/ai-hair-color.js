@@ -59,6 +59,53 @@ export async function changeHairColorWithAI(imageBase64, targetColor, colorDescr
 }
 
 /**
+ * AI画像生成を使用してファッションカラーを変更
+ * @param {string} imageBase64 - 元画像のbase64
+ * @param {string} targetColor - ターゲットカラー
+ * @param {string} password - アクセスパスワード
+ * @returns {Promise<string>} - 生成された画像のURL
+ */
+export async function changeFashionWithAI(imageBase64, targetColor, password) {
+    if (!password) {
+        throw new Error("パスワードが必要です。");
+    }
+
+    try {
+        const response = await fetch('/api/generate-fashion', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                image: imageBase64,
+                targetColor: targetColor,
+                accessPassword: password
+            })
+        });
+
+        if (response.status === 401) {
+            throw new Error("パスワードが間違っています。");
+        }
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Server Error: ${errorText}`);
+        }
+
+        const data = await response.json();
+        
+        if (!data.success || !data.imageUrl) {
+            throw new Error(data.error || '画像生成に失敗しました');
+        }
+
+        return data.imageUrl;
+    } catch (error) {
+        console.error('Fashion AI Generation Error:', error);
+        throw error;
+    }
+}
+
+/**
  * シーズンに基づいた3つのおすすめヘアカラーを取得
  */
 export function getThreeRecommendedColors(season) {

@@ -9,7 +9,7 @@ console.log("Loading script.js v1.5.1 - 2024-12-14");
 import { diagnosePersonalColor } from './color-diagnosis.js';
 import { createHairMask, applyHairColor, getHairColorPalette } from './hair-simulation.js';
 import { createPreciseHairMask, initImageSegmenter } from './hair-segmentation.js';
-import { changeHairColorWithAI, getThreeRecommendedColors, loadImageToCanvas, canvasToBase64, verifyPassword } from './ai-hair-color.js';
+import { changeHairColorWithAI, getThreeRecommendedColors, loadImageToCanvas, canvasToBase64, verifyPassword, changeFashionWithAI } from './ai-hair-color.js';
 
 const fileInput = document.getElementById('file-input');
 const uploadContainer = document.getElementById('upload-container');
@@ -36,6 +36,8 @@ let allGeneratedImages = []; // すべての生成画像を蓄積（診断結果
 let currentSelectedIndex = -1; // 現在選択されているパターン
 let inlineCanvas = null; // インライン表示用のCanvas
 let isAnalyzing = false; // 解析中フラグ（重複実行防止）
+let selectedFashionBaseImage = null; // ファッションシミュレーション用ベース画像
+let selectedFashionHairInfo = null; // 選択された髪色情報
 
 let faceLandmarker;
 let poseLandmarker;
@@ -204,6 +206,7 @@ function resetToNewImage() {
     const inlinePreview = document.getElementById('inline-preview-container');
     const floatingActions = document.getElementById('floating-actions-container');
     const resetSection = document.getElementById('reset-section');
+    const fashionSection = document.getElementById('fashion-simulation-section');
     
     if (diagnosisCard) diagnosisCard.classList.add('hidden');
     if (hairSimCard) hairSimCard.classList.add('hidden');
@@ -214,6 +217,7 @@ function resetToNewImage() {
     if (inlinePreview) inlinePreview.classList.add('hidden');
     if (floatingActions) floatingActions.classList.add('hidden');
     if (resetSection) resetSection.classList.add('hidden');
+    if (fashionSection) fashionSection.classList.add('hidden');
     
     // 生成ボタンを再表示
     const generateBtn = document.getElementById('generate-hair-colors-btn');
@@ -235,6 +239,8 @@ function resetToNewImage() {
     allGeneratedImages = []; // 蓄積画像もリセット
     currentSelectedIndex = -1;
     inlineCanvas = null;
+    selectedFashionBaseImage = null;
+    selectedFashionHairInfo = null;
     
     console.log('Reset complete: All data cleared for new image analysis');
     
@@ -813,10 +819,16 @@ function displayHairColorResults() {
                             ${isAI ? '<span class="ml-2 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">AI生成</span>' : ''}
                         </h4>
                     </div>
-                    <button class="view-result-btn text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center" data-index="${index}">
-                        <span class="material-icons text-sm mr-1">visibility</span>
-                        表示
-                    </button>
+                    <div class="flex space-x-2">
+                        <button class="view-result-btn text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center" data-index="${index}">
+                            <span class="material-icons text-sm mr-1">visibility</span>
+                            表示
+                        </button>
+                        <button class="select-fashion-btn text-xs bg-indigo-50 text-indigo-600 hover:bg-indigo-100 px-2 py-1 rounded font-medium flex items-center" data-index="${index}" data-type="recommended">
+                            <span class="material-icons text-sm mr-1">checkroom</span>
+                            試着
+                        </button>
+                    </div>
                 </div>
                 <div class="relative rounded-lg overflow-hidden shadow-md cursor-pointer hover:shadow-lg transition-all" data-index="${index}">
                     <img src="${imageDataUrl}" alt="${result.colorInfo.name}" class="w-full h-auto">
@@ -832,9 +844,23 @@ function displayHairColorResults() {
     
     // 表示ボタンとサムネイルクリックのイベント
     container.querySelectorAll('[data-index]').forEach(element => {
-        element.addEventListener('click', (e) => {
+        // Only bind if it's the view button or the image container (not select button)
+        if (!element.classList.contains('select-fashion-btn')) {
+             element.addEventListener('click', (e) => {
+                 // If clicking the select button inside, don't trigger view
+                 if (e.target.closest('.select-fashion-btn')) return;
+                 const index = parseInt(e.currentTarget.getAttribute('data-index'));
+                 displayResultOnMainCanvas(index);
+            });
+        }
+    });
+
+    // ファッション試着ボタンのイベント
+    container.querySelectorAll('.select-fashion-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation(); // 親要素のクリックイベントを停止
             const index = parseInt(e.currentTarget.getAttribute('data-index'));
-            displayResultOnMainCanvas(index);
+            selectForFashion(index, 'recommended');
         });
     });
 }
@@ -1132,11 +1158,53 @@ function updateImageGallery() {
             `;
             
             // クリックで拡大表示
-            imgCard.addEventListener('click', () => {
+            imgCard.addEventListener('click', (e) => {
+                 // Check if click target is the select button
+                 if (e.target.closest('.select-gallery-fashion-btn')) {
+                     // Handled by the button listener
+                     return;
+                 }
                 showImageModal(imageDataUrl, item.colorInfo.name, typeLabel);
             });
             
-            galleryGrid.appendChild(imgCard);
+            // Add fashion select button to gallery item
+            const actionDiv = document.createElement('div');
+            actionDiv.className = 'absolute top-2 left-2 z-10';
+            actionDiv.innerHTML = `
+                <button class="select-gallery-fashion-btn bg-white/90 hover:bg-white text-indigo-600 p-1.5 rounded-full shadow-md transition-all flex items-center justify-center" title="この髪色で服を試着">
+                    <span class="material-icons text-sm">checkroom</span>
+                </button>
+            `;
+            
+            // Re-structure to allow button click
+            const imgWrapper = document.createElement('div');
+            imgWrapper.className = 'relative group cursor-pointer rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-all';
+            
+            // Original Inner HTML minus the wrapper div
+            imgWrapper.innerHTML = `
+                <img src="${imageDataUrl}" alt="${item.colorInfo.name}" class="w-full h-auto">
+                <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-all flex flex-col justify-end p-3">
+                    <p class="text-white font-bold text-sm">${item.colorInfo.name}</p>
+                    <p class="text-white/80 text-xs">${typeLabel}</p>
+                </div>
+                <div class="absolute top-2 right-2 bg-white/90 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-all">
+                    <span class="material-icons text-purple-600 text-sm">zoom_in</span>
+                </div>
+            `;
+            imgWrapper.appendChild(actionDiv);
+            
+             // Re-attach click listener
+            imgWrapper.addEventListener('click', (e) => {
+                if (e.target.closest('.select-gallery-fashion-btn')) {
+                     // Calculate actual index in allGeneratedImages (reversed in UI)
+                     const actualIndex = allGeneratedImages.length - 1 - index;
+                     selectForFashion(actualIndex, 'all');
+                     return;
+                }
+                showImageModal(imageDataUrl, item.colorInfo.name, typeLabel);
+            });
+            
+            galleryGrid.appendChild(imgWrapper);
         });
     }
 }
@@ -1183,3 +1251,176 @@ function showImageModal(imageUrl, title, subtitle) {
     document.getElementById('modal-image').src = imageUrl;
     modal.classList.remove('hidden');
 }
+
+// ファッションシミュレーション機能
+async function selectForFashion(index, type) {
+    let item;
+    if (type === 'recommended') {
+        item = aiGeneratedImages[index];
+    } else if (type === 'all') {
+        item = allGeneratedImages[index];
+    }
+    
+    if (!item || !item.canvas) return;
+    
+    // ベース画像を保存
+    const base64 = await canvasToBase64(item.canvas);
+    selectedFashionBaseImage = base64;
+    selectedFashionHairInfo = item.colorInfo;
+    
+    // UI更新
+    const baseImageEl = document.getElementById('fashion-base-image');
+    baseImageEl.src = item.canvas.toDataURL('image/jpeg', 0.8);
+    baseImageEl.classList.remove('hidden');
+    document.getElementById('fashion-output-canvas').classList.add('hidden');
+    document.getElementById('fashion-placeholder').classList.add('hidden');
+    document.getElementById('fashion-label-container').classList.remove('hidden');
+    
+    const styleLabel = document.getElementById('fashion-current-style');
+    styleLabel.innerText = `現在のスタイル: ${item.colorInfo.name}`;
+    
+    // おすすめカラーを更新
+    updateFashionRecommendations();
+    
+    // セクションを表示してスクロール
+    const fashionSection = document.getElementById('fashion-simulation-section');
+    fashionSection.classList.remove('hidden');
+    fashionSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    
+    // Customボタンを有効化
+    const customBtn = document.getElementById('fashion-generate-btn');
+    customBtn.disabled = false;
+    customBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+}
+
+function updateFashionRecommendations() {
+    const container = document.getElementById('fashion-recommended-palette');
+    container.innerHTML = '';
+    
+    if (!currentDiagnosis) return;
+    
+    const season = currentDiagnosis.season;
+    const colors = getRecommendedFashionColors(season);
+    
+    colors.forEach(color => {
+        const btn = document.createElement('button');
+        btn.className = 'flex flex-col items-center p-3 rounded-lg border border-slate-200 hover:bg-slate-50 hover:shadow-md transition-all group';
+        btn.innerHTML = `
+            <div class="w-12 h-12 rounded-full shadow-sm mb-2 border border-slate-100" style="background-color: ${color.hex}"></div>
+            <span class="text-xs font-medium text-slate-700 text-center">${color.name}</span>
+        `;
+        
+        btn.addEventListener('click', () => {
+            generateFashion(color.name);
+        });
+        
+        container.appendChild(btn);
+    });
+}
+
+function getRecommendedFashionColors(season) {
+    // シーズンごとのファッションカラー
+    const palettes = {
+        'spring': [
+            { name: 'Cream Yellow', hex: '#FFFDD0' },
+            { name: 'Coral Pink', hex: '#FF7F50' },
+            { name: 'Light Green', hex: '#90EE90' },
+            { name: 'Beige', hex: '#F5F5DC' },
+            { name: 'Aqua', hex: '#00FFFF' },
+            { name: 'Orange', hex: '#FFA500' }
+        ],
+        'summer': [
+            { name: 'Powder Blue', hex: '#B0E0E6' },
+            { name: 'Lavender', hex: '#E6E6FA' },
+            { name: 'Off White', hex: '#FAF0E6' },
+            { name: 'Rose Pink', hex: '#FF66CC' },
+            { name: 'Mint Green', hex: '#98FF98' },
+            { name: 'Grey', hex: '#808080' }
+        ],
+        'autumn': [
+            { name: 'Terracotta', hex: '#E2725B' },
+            { name: 'Khaki', hex: '#F0E68C' },
+            { name: 'Mustard', hex: '#FFDB58' },
+            { name: 'Dark Brown', hex: '#654321' },
+            { name: 'Olive', hex: '#808000' },
+            { name: 'Teal', hex: '#008080' }
+        ],
+        'winter': [
+            { name: 'Royal Blue', hex: '#4169E1' },
+            { name: 'Pure White', hex: '#FFFFFF' },
+            { name: 'Black', hex: '#000000' },
+            { name: 'Magenta', hex: '#FF00FF' },
+            { name: 'Emerald', hex: '#50C878' },
+            { name: 'Icy Lemon', hex: '#FFFACD' }
+        ]
+    };
+    
+    return palettes[season] || palettes['spring'];
+}
+
+async function generateFashion(colorName) {
+    if (!selectedFashionBaseImage) {
+        alert("まずは髪色シミュレーション画像を選択してください。");
+        return;
+    }
+    
+    // パスワードチェック
+    const passwordInput = document.getElementById('ai-password-input');
+    const password = passwordInput ? passwordInput.value.trim() : '';
+    
+    if (!password) {
+        alert("ファッションコーディネート機能は高精度AIを使用するため、パスワードが必要です。\n「ヘアカラーシミュレーション」セクションでパスワードを入力してください。");
+        return;
+    }
+    
+    // UI Loading
+    const loadingOverlay = document.getElementById('fashion-loading-overlay');
+    loadingOverlay.classList.remove('hidden');
+    
+    try {
+        const imageUrl = await changeFashionWithAI(selectedFashionBaseImage, colorName, password);
+        const resultCanvas = await loadImageToCanvas(imageUrl);
+        
+        // 結果を表示
+        const outputCanvas = document.getElementById('fashion-output-canvas');
+        outputCanvas.width = resultCanvas.width;
+        outputCanvas.height = resultCanvas.height;
+        const ctx = outputCanvas.getContext('2d');
+        ctx.drawImage(resultCanvas, 0, 0);
+        
+        document.getElementById('fashion-base-image').classList.add('hidden');
+        outputCanvas.classList.remove('hidden');
+        
+        // ラベル更新
+        const styleLabel = document.getElementById('fashion-current-style');
+        styleLabel.innerText = `Coordinate: ${selectedFashionHairInfo.name} Hair × ${colorName} Outfit`;
+        
+    } catch (error) {
+        console.error("Fashion generation failed:", error);
+        alert(`生成エラー: ${error.message}`);
+    } finally {
+        loadingOverlay.classList.add('hidden');
+    }
+}
+
+// Custom Fashion Color Event
+document.getElementById('fashion-generate-btn').addEventListener('click', () => {
+    const textInput = document.getElementById('fashion-custom-color-text');
+    const pickerInput = document.getElementById('fashion-custom-color-picker');
+    
+    let color = textInput.value.trim();
+    if (!color) {
+        // カラーピッカーの色を使用する場合、hexコードより色名の方がAIには伝わりやすいが、
+        // hexコードも一応送れる。しかしGeminiは色名推奨。
+        // ここでは単純にhexを送る
+        color = pickerInput.value;
+    }
+    
+    generateFashion(color);
+});
+
+// Sync picker to text (optional)
+document.getElementById('fashion-custom-color-picker').addEventListener('change', (e) => {
+    // document.getElementById('fashion-custom-color-text').value = e.target.value; 
+    // HEXコードを入れるとユーザーが混乱するかもしれないので、入れないでおく
+});
