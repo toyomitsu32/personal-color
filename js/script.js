@@ -4,6 +4,8 @@ import {
   FilesetResolver
 } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/+esm";
 
+console.log("Loading script.js v1.5.1 - 2024-12-14");
+
 import { diagnosePersonalColor } from './color-diagnosis.js';
 import { createHairMask, applyHairColor, getHairColorPalette } from './hair-simulation.js';
 import { createPreciseHairMask, initImageSegmenter } from './hair-segmentation.js';
