@@ -26,6 +26,7 @@ const errorMessage = document.getElementById('error-message');
 
 // グローバル変数
 let currentLandmarks = null;
+let currentPoseLandmarks = null; // ポーズランドマーク
 let originalCanvas = null;
 let currentDiagnosis = null;
 let beforeCanvas = null;
@@ -35,6 +36,7 @@ let aiGeneratedImages = []; // AI生成された3パターンの画像を保存
 let allGeneratedImages = []; // すべての生成画像を蓄積（診断結果 + カスタム）
 let currentSelectedIndex = -1; // 現在選択されているパターン
 let inlineCanvas = null; // インライン表示用のCanvas
+let drapeCanvas = null; // ドレープシミュレーション用のCanvas
 let isAnalyzing = false; // 解析中フラグ（重複実行防止）
 
 let faceLandmarker;
@@ -200,6 +202,7 @@ function resetToNewImage() {
     const diagnosisCard = document.getElementById('diagnosis-card');
     const hairSimCard = document.getElementById('hair-simulation-card');
     const hairResultsCard = document.getElementById('hair-results-card');
+    const drapeCard = document.getElementById('drape-simulation-card');
     const beforeAfterToggle = document.getElementById('before-after-toggle');
     const inlinePreview = document.getElementById('inline-preview-container');
     const floatingActions = document.getElementById('floating-actions-container');
@@ -207,6 +210,7 @@ function resetToNewImage() {
     
     if (diagnosisCard) diagnosisCard.classList.add('hidden');
     if (hairSimCard) hairSimCard.classList.add('hidden');
+    if (drapeCard) drapeCard.classList.add('hidden');
     const customColorCard = document.getElementById('custom-color-card');
     if (customColorCard) customColorCard.classList.add('hidden');
     if (hairResultsCard) hairResultsCard.classList.add('hidden');
@@ -226,6 +230,7 @@ function resetToNewImage() {
     
     // グローバル変数をリセット
     currentLandmarks = null;
+    currentPoseLandmarks = null;
     originalCanvas = null;
     currentDiagnosis = null;
     beforeCanvas = null;
@@ -235,6 +240,7 @@ function resetToNewImage() {
     allGeneratedImages = []; // 蓄積画像もリセット
     currentSelectedIndex = -1;
     inlineCanvas = null;
+    drapeCanvas = null;
     
     console.log('Reset complete: All data cleared for new image analysis');
     
@@ -316,7 +322,10 @@ async function runInference(img) {
             console.log("Pose detection results:", poseResults);
             if (poseResults.landmarks && poseResults.landmarks.length > 0) {
                 // 将来的に骨格診断に使用可能
+                currentPoseLandmarks = poseResults.landmarks[0];
                 drawPoseLandmarks(poseResults.landmarks[0], ctx);
+            } else {
+                currentPoseLandmarks = null;
             }
         } catch (poseError) {
             console.warn("Pose detection failed:", poseError);
@@ -475,6 +484,9 @@ function analyzeColors(landmarks, ctx) {
     
     // ヘアカラーシミュレーション機能を有効化
     initHairSimulation(diagnosis.season);
+
+    // ドレープシミュレーション機能を有効化
+    initDrapeSimulation(diagnosis.season);
     
     // 表示セクションを有効化
     document.getElementById('simulation-section').classList.remove('hidden');
@@ -1182,4 +1194,211 @@ function showImageModal(imageUrl, title, subtitle) {
     document.getElementById('modal-subtitle').innerText = subtitle;
     document.getElementById('modal-image').src = imageUrl;
     modal.classList.remove('hidden');
+}
+
+// ドレープ（ファッション）シミュレーション
+function initDrapeSimulation(season) {
+    const drapeCard = document.getElementById('drape-simulation-card');
+    if (!drapeCard) return;
+
+    drapeCard.classList.remove('hidden');
+
+    // Canvasの準備
+    drapeCanvas = document.getElementById('drape-canvas');
+    if (drapeCanvas && originalCanvas) {
+        drapeCanvas.width = originalCanvas.width;
+        drapeCanvas.height = originalCanvas.height;
+        const dCtx = drapeCanvas.getContext('2d');
+        dCtx.drawImage(originalCanvas, 0, 0);
+    }
+
+    // パレットの生成
+    const paletteContainer = document.getElementById('drape-palette');
+    if (paletteContainer) {
+        paletteContainer.innerHTML = '';
+        const seasonColors = getSeasonDrapeColors(season);
+        
+        seasonColors.forEach(color => {
+            const btn = document.createElement('button');
+            btn.className = 'w-10 h-10 rounded-full border-2 border-white shadow-md hover:scale-110 transition-transform focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500';
+            btn.style.backgroundColor = color.hex;
+            btn.title = color.name;
+            
+            btn.addEventListener('click', () => {
+                drawDrape(color.hex, color.name);
+            });
+            
+            paletteContainer.appendChild(btn);
+        });
+    }
+
+    // クリアボタン
+    const clearBtn = document.getElementById('clear-drape-btn');
+    if (clearBtn) {
+        // イベントリスナーの重複登録を防ぐ（簡易的）
+        const newBtn = clearBtn.cloneNode(true);
+        clearBtn.parentNode.replaceChild(newBtn, clearBtn);
+        newBtn.addEventListener('click', clearDrape);
+    }
+}
+
+function getSeasonDrapeColors(season) {
+    // シーズンごとの代表的なドレープカラー（服として使いやすい色）
+    const palettes = {
+        'spring': [
+            { name: 'Coral Pink', hex: '#F08080' },
+            { name: 'Bright Orange', hex: '#FFA500' },
+            { name: 'Canary Yellow', hex: '#FFEF00' },
+            { name: 'Yellow Green', hex: '#9ACD32' },
+            { name: 'Beige', hex: '#F5F5DC' },
+            { name: 'Aqua Blue', hex: '#00FFFF' }
+        ],
+        'summer': [
+            { name: 'Baby Pink', hex: '#F4C2C2' },
+            { name: 'Lavender', hex: '#E6E6FA' },
+            { name: 'Sky Blue', hex: '#87CEEB' },
+            { name: 'Mint Green', hex: '#98FF98' },
+            { name: 'Off White', hex: '#F8F8FF' },
+            { name: 'Cocoa', hex: '#D2691E' } // Adjusted
+        ],
+        'autumn': [
+            { name: 'Terracotta', hex: '#E2725B' },
+            { name: 'Mustard', hex: '#FFDB58' },
+            { name: 'Olive', hex: '#808000' },
+            { name: 'Khaki', hex: '#F0E68C' },
+            { name: 'Dark Brown', hex: '#654321' },
+            { name: 'Teal', hex: '#008080' }
+        ],
+        'winter': [
+            { name: 'Pure White', hex: '#FFFFFF' },
+            { name: 'Black', hex: '#000000' },
+            { name: 'Royal Blue', hex: '#4169E1' },
+            { name: 'Hot Pink', hex: '#FF69B4' },
+            { name: 'Lemon Yellow', hex: '#FFF44F' },
+            { name: 'Charcoal', hex: '#36454F' }
+        ]
+    };
+    
+    // season string is usually 'spring', 'summer', etc. from diagnosis
+    return palettes[season.toLowerCase()] || palettes['spring'];
+}
+
+function drawDrape(colorHex, colorName) {
+    if (!drapeCanvas || !originalCanvas) return;
+    
+    const ctx = drapeCanvas.getContext('2d');
+    const w = drapeCanvas.width;
+    const h = drapeCanvas.height;
+
+    // 画像をリセット
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(originalCanvas, 0, 0);
+
+    // ドレープの領域を計算
+    // ポーズランドマークがあればそれを使用、なければ顔の下半分から推測
+    let drapePath = new Path2D();
+    
+    if (currentPoseLandmarks && currentPoseLandmarks.length > 0) {
+        const leftShoulder = currentPoseLandmarks[11];
+        const rightShoulder = currentPoseLandmarks[12];
+        const nose = currentLandmarks[1]; // 鼻
+        
+        // 簡易的なドレープ形状: 肩〜肩〜下端
+        // 実際には首元を考慮する必要がある
+        
+        // 左肩
+        drapePath.moveTo(leftShoulder.x * w, leftShoulder.y * h);
+        
+        // 首元（顔の顎ラインを使用）
+        // 顎のラインに沿って描画（左から右へ）
+        // FaceMesh: 234(左耳付近) -> 152(顎下) -> 454(右耳付近)
+        // 顔の輪郭点を利用して、ドレープが顔にかからないようにする
+        
+        // 顔の輪郭点（簡易版）
+        // 左顎ライン (Left Jaw)
+        const leftJaw = currentLandmarks[132] || currentLandmarks[58]; // MediaPipeのインデックス
+        const chin = currentLandmarks[152];
+        const rightJaw = currentLandmarks[361] || currentLandmarks[288];
+        
+        // カーブを描く: 左肩 -> 左首元 -> 顎下 -> 右首元 -> 右肩
+        // コントロールポイントを適当に設定
+        
+        // 単純化: 左肩 -> 顎下 -> 右肩 -> 右下 -> 左下 -> 左肩
+        // これだと顔が隠れる可能性があるので、合成モードで調整するか、顎の下を通す
+        
+        ctx.beginPath();
+        ctx.moveTo(leftShoulder.x * w, Math.min(leftShoulder.y * h, h)); // 左肩
+        
+        // 顎下を通る曲線
+        ctx.quadraticCurveTo(
+            nose.x * w, chin.y * h + (chin.y - nose.y) * h * 0.5, // 制御点（顎の少し下）
+            rightShoulder.x * w, Math.min(rightShoulder.y * h, h) // 右肩
+        );
+        
+        // 画面下へ
+        ctx.lineTo(w, h);
+        ctx.lineTo(0, h);
+        ctx.closePath();
+        
+    } else {
+        // ポーズがない場合のフォールバック
+        // 顔の下半分から下を塗りつぶす
+        const chin = currentLandmarks[152];
+        const yStart = chin.y * h;
+        
+        ctx.beginPath();
+        ctx.moveTo(0, yStart);
+        ctx.quadraticCurveTo(w/2, yStart + 50, w, yStart);
+        ctx.lineTo(w, h);
+        ctx.lineTo(0, h);
+        ctx.closePath();
+    }
+
+    // 色を適用
+    ctx.save();
+    
+    // 描画モード設定（乗算など）
+    // 'multiply' は白背景には良いが、暗い服の上だと見えなくなる
+    // 'normal' で不透明度を下げるのが無難か、あるいは 'soft-light'
+    // ユーザーは「イメージが湧かない」と言っているので、はっきり色が見えた方がいいかもしれない
+    // しかし、不自然すぎると良くない。
+    
+    ctx.fillStyle = colorHex;
+    ctx.globalAlpha = 0.85; // 少し透けさせて服のシワなどを残す（黒い服だと色は乗らないが...）
+    ctx.globalCompositeOperation = 'normal'; // 'multiply'だと黒服で消える
+    
+    // ドレープを描画
+    ctx.fill();
+    
+    ctx.restore();
+    
+    // ラベル更新
+    const label = document.getElementById('drape-color-name');
+    if (label) {
+        label.innerText = colorName;
+        label.style.color = isLightColor(colorHex) ? '#333' : '#fff';
+        label.style.backgroundColor = colorHex;
+    }
+}
+
+function clearDrape() {
+    if (!drapeCanvas || !originalCanvas) return;
+    const ctx = drapeCanvas.getContext('2d');
+    ctx.clearRect(0, 0, drapeCanvas.width, drapeCanvas.height);
+    ctx.drawImage(originalCanvas, 0, 0);
+    
+    const label = document.getElementById('drape-color-name');
+    if (label) {
+        label.innerText = 'カラーを選択してください';
+        label.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+        label.style.color = '#334155';
+    }
+}
+
+function isLightColor(hex) {
+    const r = parseInt(hex.substr(1, 2), 16);
+    const g = parseInt(hex.substr(3, 2), 16);
+    const b = parseInt(hex.substr(5, 2), 16);
+    const brightness = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+    return brightness > 155;
 }

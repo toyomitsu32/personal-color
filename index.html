@@ -600,6 +600,68 @@
                     </div>
                 </div>
 
+                <!-- ファッション（ドレープ）シミュレーション -->
+                <div id="drape-simulation-card" class="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-2xl p-8 shadow-xl border border-indigo-100 hidden">
+                    <div class="space-y-6">
+                        <div class="text-center">
+                            <h3 class="text-xl font-bold text-slate-900 flex items-center justify-center mb-2">
+                                <span class="material-icons text-indigo-500 mr-2">checkroom</span>
+                                ファッションカラー（ドレープ）診断
+                            </h3>
+                            <p class="text-sm text-slate-600 max-w-xl mx-auto">
+                                あなたのシーズンに似合う色を「ドレープ（布）」として首元に当ててみます。<br>
+                                顔映りの変化をチェックしてみましょう。
+                            </p>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            <!-- プレビューエリア -->
+                            <div class="bg-white rounded-xl shadow-inner border border-slate-200 overflow-hidden relative">
+                                <canvas id="drape-canvas" class="block w-full"></canvas>
+                                <div class="absolute bottom-4 left-0 right-0 text-center pointer-events-none">
+                                    <span id="drape-color-name" class="inline-block bg-white/90 backdrop-blur px-4 py-1 rounded-full text-xs font-bold text-slate-700 shadow-sm">
+                                        カラーを選択してください
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- コントロールエリア -->
+                            <div class="space-y-4">
+                                <div class="bg-white/80 rounded-xl p-4">
+                                    <h4 class="font-bold text-slate-800 text-sm mb-3 flex items-center">
+                                        <span class="material-icons text-indigo-500 text-sm mr-1">palette</span>
+                                        おすすめカラーパレット
+                                    </h4>
+                                    <div id="drape-palette" class="flex flex-wrap gap-2">
+                                        <!-- JSで生成 -->
+                                    </div>
+                                </div>
+
+                                <div class="bg-yellow-50 rounded-xl p-4 border border-yellow-100 text-xs text-slate-600 space-y-2">
+                                    <div class="flex items-start">
+                                        <span class="material-icons text-yellow-500 text-sm mr-2 mt-0.5">info</span>
+                                        <p>
+                                            <strong>色の見え方について</strong><br>
+                                            普段着ない色でも、顔の下に当てると「意外と似合う！」という発見があります。
+                                        </p>
+                                    </div>
+                                    <div class="flex items-start">
+                                        <span class="material-icons text-yellow-500 text-sm mr-2 mt-0.5">warning</span>
+                                        <p>
+                                            <strong>骨格・顔タイプの影響</strong><br>
+                                            「色」はパーソナルカラーで決まりますが、服の「形」は骨格タイプ、「柄・テイスト」は顔タイプ診断が参考になります。ここではあくまで「色」の参考にしてください。
+                                        </p>
+                                    </div>
+                                </div>
+                                
+                                <button id="clear-drape-btn" class="w-full py-2 bg-white border border-slate-300 rounded-lg text-slate-600 text-sm font-medium hover:bg-slate-50 transition-all">
+                                    ドレープを外す
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 別の画像で診断ボタン（下部配置） -->
                 <div id="reset-section" class="text-center py-8 hidden">
                     <button id="reset-btn-bottom" class="bg-white text-slate-700 font-semibold py-4 px-10 rounded-full border-2 border-slate-200 shadow-sm hover:bg-slate-50 hover:border-purple-300 hover:text-purple-600 hover:shadow-md transition-all flex items-center justify-center space-x-2 mx-auto">
